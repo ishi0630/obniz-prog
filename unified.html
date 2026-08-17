@@ -11,6 +11,18 @@
     index.html?p=1                     … 実機モード・△パネルUI
     index.html?d=1&p=1                 … デモモード・△パネルUI
     index.html?rn=2&rs=L&lg=F&d=0&p=1  … 全パラメータ指定の例
+
+  ============================================================
+  ★★★ このリポジトリ(GitHub)の位置づけ ★★★
+  本番の実機制御コードはobniz社リポジトリ(将来的にAzureへ移行予定)で
+  別途管理しています。このGitHubリポジトリ・unified.htmlは、
+  「不特定多数がアクセスする公開デモ」用として運用するため、
+  RN=1/2どちらの分岐も実機device IDを含まず、ダミーID("00000000")
+  固定にしてあります。実IDへの置き換えは絶対に行わないでください。
+
+  なお、p=0（標準UI）は現状、jQuery/Bootstrap CSS/obniz-parts-kits一式を
+  obniz.io・unpkg.com・stackpath CDNから動的読み込みする仕様のままです
+  （自リポジトリへの取り込み＝vendoringは未対応。将来対応を検討）。
   ============================================================
 -->
 <html>
@@ -738,7 +750,12 @@ class FakeObniz {
 		"ONLINE BOCCIA [RAMPE 1]";
     }
       // ★変更: DEMO_MODEなら FakeObniz、実機なら本物の Obniz を使用
-      obniz = DEMO_MODE ? new FakeObniz("00481381") : new Obniz("00481381");
+      // ★★★ 注意: このリポジトリ(GitHub公開デモ用)はダミーIDのみを使用します ★★★
+      // 実機のdevice IDではありません。公開デモとして不特定多数がアクセスするため、
+      // 万一 d=0 (実機モード) に切り替えられても本物の機材へ接続できないよう、
+      // 実在しないID("00000000")に固定しています。本番運用は別環境(Azure移行後等)で、
+      // 実IDを別途設定してください。
+      obniz = DEMO_MODE ? new FakeObniz("00000000") : new Obniz("00000000");
 
     } else {
 
@@ -749,7 +766,8 @@ class FakeObniz {
       document.getElementById("bploading").textContent =
 		"ONLINE BOCCIA [RAMPE 2]";
     }
-	  obniz = DEMO_MODE ? new FakeObniz("39129743") : new Obniz("39129743");
+	  // ★★★ 注意: 上と同様、公開デモ用のダミーIDです（実機IDではありません） ★★★
+	  obniz = DEMO_MODE ? new FakeObniz("00000000") : new Obniz("00000000");
   }
 
     if (LG === 'J') {
