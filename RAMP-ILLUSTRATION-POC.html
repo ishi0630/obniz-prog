@@ -1,0 +1,1800 @@
+<!--
+  ============================================================
+  オンラインボッチャ ランプ操作アプリ（実験用／ロボットランプ イラスト表示PoC）
+  ============================================================
+  ★★★ このファイルの位置づけ ★★★
+  RAMP-DEMO.html(公開デモ本体)をベースに複製した「実験用の別コード」です。
+  操作パネルの横に、ロボットランプのイラストを表示し、以下のアニメーションを
+  検証することが目的です（実現できず頓挫する可能性もあります）。
+    - ボールの上下移動
+    - ランプの左右移動
+    - ボールのリリース(投射)
+
+  本体(RAMP-DEMO.html)には一切影響しません。実現性が確認でき次第、
+  改めてRAMP-DEMO.html側に正式な機能として取り込む想定です。
+  それまでの間、本体とこのファイルの内容は意図的に乖離します
+  （本体側の修正はこのファイルに自動反映されません。手動で追従してください）。
+
+  安全上のルールはRAMP-DEMO.htmlと同様に維持します：
+  ※このファイルは公開デモ用です。実機のdevice IDは含まれておらず、
+    ダミーID("00000000")固定のため、実機は一切動作しません。
+    実IDへの置き換えは絶対に行わないでください。
+
+  起動時URLパラメータで、デモ・操作画面パターンを切り替えられます。
+  詳細は本ファイル内「起動パラメータ一覧」コメントを参照してください。
+
+  例）
+    RAMP-ILLUSTRATION-POC.html                         … デモモード・標準UI（デフォルト）
+    RAMP-ILLUSTRATION-POC.html?d=1                     … デモモード・標準UI
+    RAMP-ILLUSTRATION-POC.html?p=1                     … デモモード・△パネルUI（イラスト表示対象）
+    RAMP-ILLUSTRATION-POC.html?d=1&p=1                 … デモモード・△パネルUI
+    RAMP-ILLUSTRATION-POC.html?rn=2&rs=L&lg=F&d=1&p=1  … 全パラメータ指定の例
+
+  なお、p=0（標準UI）は現状、jQuery/Bootstrap CSS/obniz-parts-kits一式を
+  obniz.io・unpkg.com・stackpath CDNから動的読み込みする仕様のままです
+  （自リポジトリへの取り込み＝vendoringは未対応。将来対応を検討）。
+  ============================================================
+-->
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- ============================================================
+         ★追加: 画面上部にJSエラーを表示するバナー（原因切り分け用）
+         CSS等の読み込み失敗(致命的でない)は無視し、JSの実行エラーのみ表示する
+         ============================================================ -->
+    <script>
+      function showFatalBanner(text) {
+        var msg = document.getElementById('fatal-error-banner');
+        if (!msg) {
+          msg = document.createElement('div');
+          msg.id = 'fatal-error-banner';
+          msg.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#d32f2f;color:#fff;padding:10px 14px;font-size:13px;z-index:9999;white-space:pre-wrap;font-family:monospace;';
+          document.body.prepend(msg);
+        }
+        msg.textContent += (msg.textContent ? '\n' : '') + text;
+      }
+      window.addEventListener('error', function (e) {
+        var isScriptError = (e.target === window) || !!e.error;
+        if (!isScriptError) return;
+        var text = 'エラー: ' + (e.message || (e.error && e.error.message) || '不明なエラー');
+        if (e.filename) text += '\n  場所: ' + e.filename + ':' + e.lineno;
+        showFatalBanner(text);
+      }, true);
+      // ★追加: await中に失敗したPromise（obniz.js読み込み失敗等）も拾う
+      window.addEventListener('unhandledrejection', function (e) {
+        var reason = e.reason;
+        var text = 'エラー(非同期): ' + (reason && reason.message ? reason.message : String(reason));
+        showFatalBanner(text);
+      });
+    </script>
+
+    <!-- ============================================================
+         ★追加: 起動直後（操作ボタンを押すまで）だけ、数字キーで表示UI(p)を
+         切り替えられる仕組み。1 = 標準UI(p=0) / 2 = △パネルUI(p=1)
+         いずれかの操作ボタンが押された時点で自動的に無効化する。
+         URLパラメータを書き換えてページを再読み込みするだけの単純な仕組み。
+         ============================================================ -->
+    <script>
+      (function () {
+        var disabled = false;
+
+        function disable() {
+          disabled = true;
+          window.removeEventListener('keydown', handler);
+          document.removeEventListener('click', onAnyButtonClick, true);
+        }
+
+        // ★いずれかの操作ボタン（△パネル/標準UIどちらのボタンも）が押されたら無効化
+        function onAnyButtonClick(e) {
+          var t = e.target;
+          if (t && t.closest && (t.closest('#customPanelWrap .btn') || t.closest('#OBNIZ_OUTPUT button'))) {
+            disable();
+          }
+        }
+
+        function handler(e) {
+          if (disabled) return;
+          var url = new URL(window.location.href);
+          if (e.key === '1') {
+            url.searchParams.set('p', '0');
+            window.location.href = url.toString();
+          } else if (e.key === '2') {
+            url.searchParams.set('p', '1');
+            window.location.href = url.toString();
+          }
+        }
+
+        window.addEventListener('keydown', handler);
+        document.addEventListener('click', onAnyButtonClick, true);
+      })();
+    </script>
+
+    <!-- ============================================================
+         ★追加: 簡易jQuery代替
+         外部CDN(jquery-3.2.1.min.js)への依存をなくすための自前実装。
+         obniz-parts-kits の ui/index.js が使う最小限の機能のみ。
+         実機/デモ両方のモードで共通して使用する。
+         ============================================================ -->
+    <!-- ============================================================
+         ★変更: 軽量jQuery代替／ObnizUI(Button/Label)自前実装は、
+         △パネルUI（p=1）の時だけ使う関数として定義しておく
+         （即時実行せず、main()内でPANEL_MODEを見てから呼び出す）。
+         標準UI（p=0）の時は、この下で本物のjQuery/obniz-parts-kits/
+         Bootstrapを動的に読み込み、"もともとの標準UI"をそのまま使う。
+         ============================================================ -->
+    <script>
+      function installLightweightJQuery() {
+        window.$ = window.jQuery = function (sel) {
+          var els;
+          if (typeof sel === 'string') {
+            els = Array.prototype.slice.call(document.querySelectorAll(sel));
+          } else if (sel && sel.nodeType) {
+            els = [sel];
+          } else {
+            els = [];
+          }
+          return {
+            on: function (events, fn) {
+              events.split(' ').forEach(function (ev) {
+                els.forEach(function (el) { el.addEventListener(ev, fn); });
+              });
+              return this;
+            },
+            text: function (t) {
+              els.forEach(function (el) { el.textContent = t; });
+              return this;
+            },
+          };
+        };
+      }
+    </script>
+
+    <script>
+      function installLightweightObnizUI() {
+        let obniz_ui_counter = 0;
+
+        class ObnizButton {
+          constructor(text, size) {
+            this.size = (size || 'M').toUpperCase();
+            this.no = obniz_ui_counter;
+            this.text = text;
+            obniz_ui_counter++;
+            this.pushed = false;
+            this.clicked = false;
+            this.width = { S: '33%', M: '50%', L: '100%' };
+            this.addButton();
+          }
+          addButton() {
+            let output = document.getElementById('OBNIZ_OUTPUT');
+            let button = document.createElement('button');
+            button.id = 'obniz_button_' + this.no;
+            button.style =
+              'width:' + this.width[this.size] + ';height:100px;font-size:30px;';
+            button.className = 'btn btn-primary';
+            button.innerText = this.text;
+            output.appendChild(button);
+            const jButton = $('#obniz_button_' + this.no);
+            jButton.on('touchstart mousedown', () => { this.touchStart(); });
+            jButton.on('touchend mouseup', () => { this.touchEnd(); });
+            $(document).on('touchend mouseup', () => { this.touchEnd(); });
+            jButton.on('click', () => { this.click(); });
+          }
+          touchStart() { this.pushed = true; }
+          touchEnd() { this.pushed = false; }
+          click() { this.clicked = true; }
+          isClicked() { let tmp = this.clicked; this.clicked = false; return tmp; }
+          isTouching() { return this.pushed; }
+        }
+
+        class ObnizLabel {
+          constructor(text) {
+            this.no = obniz_ui_counter;
+            this.text = text || 'label';
+            obniz_ui_counter++;
+            this.addLabel();
+          }
+          addLabel() {
+            let output = document.getElementById('OBNIZ_OUTPUT');
+            let el = document.createElement('div');
+            el.id = 'obniz_label_' + this.no;
+            el.style = 'font-size:30px;padding:10px';
+            el.innerText = this.text;
+            output.appendChild(el);
+          }
+          setText(text) { $('#obniz_label_' + this.no).text(text); }
+        }
+
+        window.ObnizUI = {
+          Button: ObnizButton,
+          Label: ObnizLabel,
+          Util: {
+            wait: function (ms) {
+              return new Promise((resolve) => setTimeout(resolve, ms));
+            },
+          },
+        };
+      }
+
+      // ★追加: 標準UI(p=0)の時に、本物のライブラリ群をCDNから動的に読み込む
+      function loadScript(src) {
+        return new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = src;
+          s.onload = resolve;
+          s.onerror = () => reject(new Error(src + ' の読み込みに失敗しました（ネットワークをご確認ください）'));
+          document.head.appendChild(s);
+        });
+      }
+      function loadStylesheet(href) {
+        return new Promise((resolve, reject) => {
+          const l = document.createElement('link');
+          l.rel = 'stylesheet';
+          l.href = href;
+          l.onload = resolve;
+          l.onerror = () => reject(new Error(href + ' の読み込みに失敗しました（ネットワークをご確認ください）'));
+          document.head.appendChild(l);
+        });
+      }
+      async function installOriginalStandardUI() {
+        await loadStylesheet('https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css');
+        await loadScript('https://obniz.io/js/jquery-3.2.1.min.js');
+        await loadScript('https://unpkg.com/obniz-parts-kits@0.18.0/ui/index.js');
+        // ★追加: 音(_ai.playAudio)も本物のai/index.js一式を読み込む
+        // （元のscriptタグの読み込み順と同じ順序。ai/index.jsが依存するため
+        //   howler/opencv/clmtrackr系も全て読み込む必要がある）
+        await loadScript('https://unpkg.com/obniz-parts-kits@0.18.0/ai/howler2.1.2/howler.js');
+        await loadScript('https://unpkg.com/obniz-parts-kits@0.18.0/ai/opencv3.4/opencv.js');
+        await loadScript('https://unpkg.com/obniz-parts-kits@0.18.0/ai/clmtrackr/clmtrackr.js');
+        await loadScript('https://unpkg.com/obniz-parts-kits@0.18.0/ai/clmtrackr/emotion_classifier.js');
+        await loadScript('https://unpkg.com/obniz-parts-kits@0.18.0/ai/clmtrackr/emotionmodel.js');
+        await loadScript('https://unpkg.com/obniz-parts-kits@0.18.0/ai/clmtrackr/model_pca_20_svm.js');
+        await loadScript('https://unpkg.com/obniz-parts-kits@0.18.0/ai/index.js');
+      }
+
+      // ★修正: _ai.playAudio の自前実装（Web Audio）を、実物の
+      // ai/index.js の playAudio と全く同じ挙動になるよう修正。
+      // （実物はgainノードを挟まずオシレーターを直結＝音量を絞っていない、
+      //   かつ setTimeout(ms) で resolve するため、await した時に
+      //   実際に鳴っている時間だけ待たされる。以前の自前実装は
+      //   音量を絞り、即座にresolveしてしまっていたため、
+      //   標準UI(本物のai/index.js使用)と音・タイミングの両方が
+      //   ずれていた。△パネルUI（軽量実装）の時だけ使う。
+      function installLightweightAi() {
+        window._ai = {
+          playAudio: function (hz, ms) {
+            return new Promise(function (resolve) {
+              try {
+                var ctx = window._appAudioCtx ||
+                  (window._appAudioCtx = new (window.AudioContext || window.webkitAudioContext)());
+                var osc = ctx.createOscillator();
+                osc.frequency.value = hz;
+                osc.connect(ctx.destination);
+                osc.start();
+                setTimeout(function () {
+                  osc.stop();
+                  resolve();
+                }, ms);
+              } catch (e) {
+                resolve();
+              }
+            });
+          },
+        };
+      }
+    </script>
+
+    <style>
+      /* ============================================================
+         ★変更: Bootstrapの代わりの最小限のボタン装飾は、
+         「軽量自前実装(installLightweightObnizUI)を使う時」だけに限定する
+         （body.lightweight-ui クラスでスコープ）。
+         標準UI(p=0)で本物のBootstrap/obniz-parts-kitsを読み込む場合は、
+         このCSSは一切適用されず、本来のBootstrapの見た目がそのまま出る。
+         ============================================================ */
+      body.lightweight-ui #OBNIZ_OUTPUT{
+        display:flex;
+        flex-wrap:wrap;
+      }
+      body.lightweight-ui #OBNIZ_OUTPUT .btn.btn-primary{
+        background:#007bff;
+        color:#fff;
+        border:1px solid #007bff;
+        border-radius:4px;
+        box-sizing:border-box;
+        width:calc(50% - 8px) !important;
+        margin:4px;
+        cursor:pointer;
+      }
+      body.lightweight-ui #OBNIZ_OUTPUT .btn.btn-primary:active{ background:#0062cc; border-color:#005cbf; }
+    </style>
+
+    <style>
+      /* ============================================================
+         ★追加: △パターン操作パネル（p=1 の時に使用）のスタイル
+         ============================================================ */
+      :root{
+        --panel-main: #1f5c73;
+        --panel-hover: #dceaf0;
+        --panel-red: #cc2b2b;
+      }
+      html{ -webkit-text-size-adjust:100%; text-size-adjust:100%; height:100%; }
+      body{
+        margin:0;
+        height:100vh;
+        display:flex;
+        flex-direction:column;
+        overflow:hidden;
+      }
+      /* ============================================================
+         ★修正: 実機モード(d=0)接続時、obniz.js側が独自のUI要素を
+         bodyに追加することがあり、それがflexレイアウトに影響して
+         パネルが縮む問題があったため、position:fixedで画面全体を覆う
+         独立コンテナにし、他の要素の影響を受けないようにする。
+         ウィンドウ自体が既に画面の半分になっている前提で、
+         そのウィンドウいっぱいに、縦横比2:3を保ったまま最大限フィットさせる。
+         ============================================================ */
+      .wrap{
+        position:fixed;
+        inset:0;
+        z-index:9000;
+        background:#fff;
+        display:flex;
+        flex-direction:column;
+      }
+      .panel-stage{
+        flex:1 1 auto;
+        min-height:0;
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        padding:1.5vh 1vw;
+        box-sizing:border-box;
+      }
+      .demo-banner{
+        background:#fff3cd;color:#7a5b00;border:1px solid #ffe08a;
+        border-radius:4px;padding:6px 12px;margin:0 0 8px 0;font-size:13px;
+        text-align:center;flex:0 0 auto;
+      }
+      .panel{
+        aspect-ratio: 2 / 3; /* JS(fitPanelToWindow)が実際のpxサイズを都度上書きする。JS未実行時のフォールバック */
+        width:100%;
+        max-height:100%;
+        background:var(--panel-main);
+        padding:6px;
+        display:flex;
+        flex-direction:column;
+        gap:6px;
+        border-radius:6px;
+        box-sizing:border-box;
+      }
+      .panel .row{ display:flex; gap:6px; min-height:0; }
+      .panel .row.top{ flex:1; }
+      .panel .row.middle{ flex:2.6; }
+      .panel .row.bottom{ flex:1.1; }
+
+      .panel-title{
+        flex:0 0 auto;
+        margin:0;
+        padding:6px 0;
+        text-align:center;
+        color:#fff;
+        font-size:34px;
+        font-weight:bold;
+        border-radius:6px 6px 0 0;
+        background: var(--ramp-color, var(--panel-main)); /* ★追加: ランプカラーに合わせる(JS側で--ramp-colorを設定) */
+      }
+
+      .panel{ position:relative; }
+
+      .panel .btn{
+        background:#fff;
+        border:none;
+        border-radius:4px;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        cursor:pointer;
+        user-select:none;
+        font-size:30px;
+        font-weight:bold;
+        color:#111;
+        padding:16px;
+        transition: transform .05s ease, background .15s ease;
+      }
+      .panel .btn:hover{ background:var(--panel-hover); }
+      .panel .btn:active{ transform: scale(0.96); background:#c9dee6; }
+
+      .panel .up{ width:100%; }
+      .panel .left{ flex:1; min-width:0; }
+      .panel .right{ flex:1; min-width:0; }
+
+      .panel .down{ flex:1.23; }
+      .panel .throw{ flex:1; border:4px solid var(--panel-red); }
+      .panel .throw:hover{ background:#ffe0e0; }
+      .panel .throw:active{ background:#ffc7c7; }
+
+      .arrow{ width:0; height:0; border-left:44px solid transparent; border-right:44px solid transparent; }
+      .arrow-up{ border-bottom:66px solid var(--panel-main); margin-top:4px; }
+      .arrow-down{ border-top:66px solid var(--panel-main); margin-bottom:4px; }
+      .arrow-lr{ width:0; height:0; border-top:44px solid transparent; border-bottom:44px solid transparent; }
+      .arrow-left{ border-right:66px solid var(--panel-main); }
+      .arrow-right{ border-left:66px solid var(--panel-main); }
+
+      .throw-ball-icon{
+        font-size:66px;
+        line-height:1;
+        display:block;
+        margin-bottom:4px;
+      }
+
+      .panel .info{
+        position:relative;
+        flex:1.6;
+        min-width:0;
+        overflow:hidden;
+        background:#fff;
+        border-radius:4px;
+        padding:10px;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        text-align:center;
+        line-height:1.5;
+        cursor:default;
+      }
+      .panel .info .disp-text{
+        font-size:26px;
+        font-weight:bold;
+        white-space:pre-line;
+      }
+
+      /* ============================================================
+         ★修正【なげるギミック対策・再修正】: 以前はアニメーション中に
+         情報パネルをパネル全幅へ展開し他のボタン/枠を覆っていたが、
+         「他のボタンや枠が見えなくなる」問題があったため撤回。
+         情報パネルの位置・大きさは常に変えず、その実際の幅に収まる
+         文字サイズ(--pit-font、JS側で情報パネル自身の幅から計算)に
+         縮小するだけにする。ボタン・枠は常に表示されたまま。
+         ============================================================ */
+      .panel .info.pit-anim .disp-text{
+        font-size: var(--pit-font, 12px);
+        white-space:nowrap;
+      }
+      /* ★追加: なげるアニメーション中のボール(絵文字)だけ2倍サイズにする。
+         周囲の全角スペースは通常サイズのままなので、幅への影響はわずか。
+         標準UI・パネルUIどちらでも効くよう汎用クラスにしておく。 */
+      .pit-ball{
+        font-size: 2em;
+        display:inline-block;
+        line-height:1;
+        vertical-align:middle;
+      }
+    </style>
+  </head>
+
+  <body>
+
+    <!-- ============================================================
+         標準UI用タイトル表示（p=0 の時はここに表示されたまま）
+         p=1 の時は、JSでこのh3を △パネルの上部へ移動する
+         ============================================================ -->
+
+    <!-- ============================================================
+         ★修正: デモモードバナーはページ最上部に配置（p=0/1どちらでも
+         DEMO_MODEだけで表示/非表示を制御するため、パネルの外に出した）
+         ============================================================ -->
+    <div class="demo-banner" id="demoModeBanner" style="display:none; text-align:center;">
+      デモモード：操作確認のみ
+    </div>
+
+    <h3 id="bploading" style="text-align:center;">LOADING...</h3>
+
+    <!-- ============================================================
+         ★追加: △パターン操作パネル（p=1 の時のみ表示。JSで表示/移動する）
+         ============================================================ -->
+    <div class="wrap" id="customPanelWrap" style="display:none;">
+      <div class="panel-stage" id="panelStage">
+      <div class="panel">
+
+        <div class="row top">
+          <button class="btn up" id="btnUp">
+            <span class="arrow arrow-up"></span>
+            うえ
+          </button>
+        </div>
+
+        <div class="row middle">
+          <button class="btn left" id="btnLeft">
+            <span class="arrow-lr arrow-left"></span>
+            ひだり
+          </button>
+
+          <div class="info" id="infoPanel">
+            <!-- DISP(たかさ表示)はJSでここに移動されます -->
+          </div>
+
+          <button class="btn right" id="btnRight">
+            <span class="arrow-lr arrow-right"></span>
+            みぎ
+          </button>
+        </div>
+
+        <div class="row bottom">
+          <button class="btn down" id="btnDown">
+            <span class="arrow arrow-down"></span>
+            した
+          </button>
+
+          <button class="btn throw" id="btnThrow">
+            <span class="throw-ball-icon" id="throwBallIcon"></span>
+            なげる
+          </button>
+        </div>
+
+      </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         標準UI（いちばんうえ・たくさん等）のボタン出力先。
+         p=1 の時も、△パネルにない予備ボタン群はここに残る。
+         ============================================================ -->
+    <div id="OBNIZ_OUTPUT"></div>
+    <br />
+
+    <script>
+(async function main() {
+
+// ========================================
+// ★★★ SINGLE TAB GUARD（修正版）★★★
+// data:URL等、sessionStorageが使用禁止の環境でも落ちないようにする
+// ========================================
+
+const TAB_KEY = "OBNIZ_RAMP_TAB_LOCK";
+
+function safeSessionGet(key) {
+  try { return sessionStorage.getItem(key); } catch (e) { return null; }
+}
+function safeSessionSet(key, value) {
+  try { sessionStorage.setItem(key, value); } catch (e) { /* 無視 */ }
+}
+function safeSessionRemove(key) {
+  try { sessionStorage.removeItem(key); } catch (e) { /* 無視 */ }
+}
+
+if (safeSessionGet(TAB_KEY)) {
+  document.body.innerHTML =
+    "<h3 style='text-align:center;margin-top:40vh;'>このタブはすでに起動中です</h3>";
+  throw new Error("Blocked: duplicate tab");
+}
+
+safeSessionSet(TAB_KEY, "1");
+
+window.addEventListener("beforeunload", () => {
+  safeSessionRemove(TAB_KEY);
+});
+
+// ----------------------------------------------------------------------------------
+// ========================================
+// ※※※ 起動パラメータ一覧 ※※※
+// RAMP-DEMO.html?rn=2&rs=L&lg=F&d=1&p=1
+//
+//   rn : ランプ番号 (1 or 2)              ※実機のobniz ID切り替え。省略時=1
+//   rs : ランプサイズ (S or L)            ※ステップ数計算の係数切り替え。省略時=S
+//   lg : 表示言語 (J=日本語 / それ以外=フランス語)。省略時=J
+//        ★注意: d=1(デモモード)の時は、lg指定に関わらず常にJ(日本語)固定
+//   d  : ★追加 デモモード (1=obniz実機なしでシミュレーション動作 / 0=実機接続)。省略時=0(実機モード)
+//   p  : ★追加 操作パネル (1=△の大きいボタンパネルUI / 0=標準の小ボタンUI)。省略時=0(標準UI)
+// ========================================
+
+function getParam(name, defaultValue) {
+  const url = new URL(window.location.href);
+  return url.searchParams.get(name) || defaultValue;
+}
+
+const RN = Number(getParam("rn", 1));
+const RS = getParam("rs", "S");
+// ========================================
+// ★設計方針: 「モード軸」と「表示軸」は独立した別々の概念として扱う
+//
+//   モード軸 (DEMO_MODE) … obniz本体の実体(Fake/実機)、デモ限定の挙動
+//                          （予備ボタン非表示・なげる簡略化・移動時ディレイ等）
+//   表示軸  (PANEL_MODE) … どのUIレイアウトを見せるか（△パネル/標準ボタン）
+//
+//   → 表示パターンを今後追加する場合も、DEMO_MODEの判定はUIの種類を問わず
+//     常に "if (DEMO_MODE) { ... }" だけで済むようにする。
+//     逆に、表示側の分岐(レイアウト・文言整形)にDEMO_MODEを混ぜない。
+// ========================================
+const DEMO_MODE = getParam("d", "0") === "1";   // ★追加: 省略時のデフォルトは実機モード
+const PANEL_MODE = getParam("p", "0") === "1";  // ★変更: 省略時のデフォルトを標準UI(0)に
+
+// ★追加: デモモード時は lg パラメータの指定を無視し、常に日本語(J)にする
+// ★修正: lgパラメータの大文字小文字を区別しないようにする
+// （"j"のような小文字指定が"J"と一致せずフランス語側に落ちていたバグを修正）
+const LG = (DEMO_MODE ? "J" : getParam("lg", "J")).toUpperCase();
+
+// ========================================
+// ★追加: デモモード表示バナーの出し分け
+// ========================================
+if (DEMO_MODE) {
+  const banner = document.getElementById('demoModeBanner');
+  if (banner) banner.style.display = 'block';
+}
+
+// ========================================
+// ★追加: 実機モードの時だけ、本物のobniz.jsをCDNから動的に読み込む
+// （デモモードではobniz.js自体を読み込まない＝実機不要・オフラインでも動作）
+// ========================================
+if (!DEMO_MODE) {
+  await new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://unpkg.com/obniz@3.19.0/obniz.js';
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('obniz.jsの読み込みに失敗しました（ネットワークをご確認ください）'));
+    document.head.appendChild(s);
+  });
+}
+
+// ========================================
+// ★追加: UIライブラリの選択
+// 標準UI(p=0) … 「もともとの標準UI」を再現するため、本物のBootstrap CSS /
+//               本物のobniz-parts-kits ui/index.js をCDNから読み込む
+// △パネルUI(p=1) … 軽量な自前実装（外部CDN不要）を使う
+// ========================================
+if (PANEL_MODE) {
+  installLightweightJQuery();
+  installLightweightObnizUI();
+  installLightweightAi();
+  document.body.classList.add('lightweight-ui');
+} else {
+  await installOriginalStandardUI();
+}
+
+// ========================================
+// ★追加: テストモード：FAKE OBNIZ（実機なしでシミュレーション）
+// たかさ(EEPROM ADDR_HEIGHT=0x0000)と左右位置(ADDR_DIRECTION=0x0010)を
+// メモリ上に保持し、実機がなくてもエラーにならず動作を確認できます。
+// d=1 の時のみ使用（d=0 の時は本物の Obniz クラスを使用）。
+// ========================================
+
+class FakeObniz {
+  constructor(id) {
+    this.id = id;
+    this._onconnect = null;
+    this._onclose = null;
+
+    this._eeprom = { 0x0000: 50, 0x0010: 0 };
+    this._eepromPointer = 0;
+
+    this.i2c0 = {
+      start: () => {},
+      write: async (addr, dataArray) => {
+        await FakeObniz._wait(5);
+        if (dataArray.length >= 3) {
+          const regAddr = (dataArray[0] << 8) | dataArray[1];
+          this._eeprom[regAddr] = dataArray[2];
+        } else if (dataArray.length === 2) {
+          this._eepromPointer = (dataArray[0] << 8) | dataArray[1];
+        }
+      },
+      readWait: async () => {
+        await FakeObniz._wait(5);
+        const v = this._eeprom[this._eepromPointer];
+        return [v === undefined ? 0 : v];
+      },
+    };
+
+    this.io11 = {
+      output: (v) => { console.log("[FakeObniz] io11 output:", v); },
+    };
+
+    this.display = {
+      print: (t) => console.log("[FakeObniz display]", t),
+      clear: () => {},
+    };
+  }
+
+  static _wait(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  wired(type) {
+    if (type === "ServoMotor") {
+      return { angle: (v) => console.log("[FakeObniz] servo angle:", v) };
+    }
+    if (type === "StepperMotor") {
+      return {
+        stepType: () => {},
+        speed: () => {},
+        holdWait: async () => { await FakeObniz._wait(10); },
+        freeWait: async () => { await FakeObniz._wait(10); },
+        stepWait: async (steps) => {
+          await FakeObniz._wait(Math.min(400, Math.abs(steps) / 2 + 30));
+        },
+      };
+    }
+    return {};
+  }
+
+  set onconnect(fn) {
+    this._onconnect = fn;
+    setTimeout(() => {
+      if (typeof this._onconnect === "function") this._onconnect();
+    }, 100);
+  }
+  get onconnect() { return this._onconnect; }
+
+  set onclose(fn) { this._onclose = fn; }
+  get onclose() { return this._onclose; }
+}
+
+// ----------------------------------------------------------------------------------
+// ========================================
+// ※※※ VARIABLE DECLARE ※※※
+// ========================================
+
+    let obniz;
+
+    let msg_TXT, msg_L, msg_R, msg_PIT;
+    let msg_H, msg_H100, msg_H50, msg_H0;
+    let msg_H100_2, msg_H50_2, msg_H0_2;
+    let msg_LM;
+    let voi_H100, voi_H50, voi_H0;
+    let msg_inp, msg_WT;
+
+    let btn_H100, btn_PIT;
+    let btn_U, btn_D, btn_UU, btn_DD;
+    let btn_L, btn_R, btn_LL, btn_RR;
+    let btn_H0, btn_H50;
+
+// ----------------------------------------------------------------------------------
+// ========================================
+// RAMP_No/obniz/LANG SET
+// ========================================
+
+    if (RN === 1) {
+
+      if (LG === 'J') {
+      document.getElementById("bploading").textContent =
+		"オンラインボッチャ[ランプ１]";
+      } else {
+      document.getElementById("bploading").textContent =
+		"ONLINE BOCCIA [RAMPE 1]";
+    }
+      // ★変更: DEMO_MODEなら FakeObniz、実機なら本物の Obniz を使用
+      // ★★★ 注意: このリポジトリ(GitHub公開デモ用)はダミーIDのみを使用します ★★★
+      // 実機のdevice IDではありません。公開デモとして不特定多数がアクセスするため、
+      // 万一 d=0 (実機モード) に切り替えられても本物の機材へ接続できないよう、
+      // 実在しないID("00000000")に固定しています。本番運用は別環境(Azure移行後等)で、
+      // 実IDを別途設定してください。
+      obniz = DEMO_MODE ? new FakeObniz("00000000") : new Obniz("00000000");
+
+    } else {
+
+      if (LG === 'J') {
+      document.getElementById("bploading").textContent =
+		"オンラインボッチャ[ランプ２]";
+      } else {
+      document.getElementById("bploading").textContent =
+		"ONLINE BOCCIA [RAMPE 2]";
+    }
+	  // ★★★ 注意: 上と同様、公開デモ用のダミーIDです（実機IDではありません） ★★★
+	  obniz = DEMO_MODE ? new FakeObniz("00000000") : new Obniz("00000000");
+  }
+
+    if (LG === 'J') {
+
+      msg_TXT = "～オンラインボッチャ～";
+      msg_L = " ひだり ";
+      msg_R = "  みぎ  ";
+      msg_PIT = "！なげます！";
+      msg_H = "たかさ ";
+      msg_H100 = ' いちばんうえに いどうちゅう';
+      msg_H50 = ' まんなかに いどうちゅう';
+      msg_H0 = ' いちばんしたに いどうちゅう';
+      msg_H100_2 = ' いちばんうえ！';
+      msg_H50_2 = ' まんなか！';
+      msg_H0_2 = ' いちばんした！';
+      msg_LM = ' ここまで！';
+      voi_H100 = ' いちばんうえ';
+      voi_H50 = ' まんなか';
+      voi_H0 = ' いちばんした';
+      msg_inp = ' OK!';
+      msg_WT = ' WAIT!';
+
+      btn_H100 = 'いちばんうえ';
+      btn_PIT = 'なげる';
+      btn_U = '↑ すこし';
+      btn_D = '↓ すこし';
+      btn_UU = '↑↑ たくさん';
+      btn_DD = '↓↓ たくさん';
+      btn_L = '← すこし';
+      btn_R = '→ すこし';
+      btn_LL = '←← たくさん';
+      btn_RR = '→→ たくさん';
+      btn_H0 = 'いちばんした';
+      btn_H50 = 'まんなか';
+
+      } else {
+
+      msg_TXT = "- ONLINE BOCCIA -";
+      msg_L = " à gauch ";
+      msg_R = " à droite ";
+      msg_PIT = 'Lancer';
+      msg_H = 'Hauteur ' ;
+      msg_H100 = ' en mouvement[100]';
+      msg_H50 = ' en mouvement[50]';
+      msg_H100_2 = ' Le maximum 100';
+      msg_H50_2 = ' La moitié 50';
+      msg_LM = ' Limite';
+      voi_H100 = ' Le maximum';
+      voi_H50 = ' La moitié';
+      msg_inp = ' Opé !';
+      msg_WT = ' Attends !';
+
+      btn_H100 = 'Haut 100';
+      btn_PIT = 'Lancer';
+      btn_U = '↑';
+      btn_D = '↓';
+      btn_UU = '↑↑';
+      btn_DD = '↓↓';
+      btn_L = '←';
+      btn_R = '→';
+      btn_LL = '←←';
+      btn_RR = '→→';
+      btn_H0 = 'Milieu 0';
+      btn_H50 = 'Milieu 50';
+    }
+
+// ★【修正箇所】UI増殖バグ対策：UI生成をonconnectの外（1度しか走らない場所）に移動
+let DISP = new ObnizUI.Label('label');
+DISP.setText(msg_TXT);
+
+let H100 = new ObnizUI.Button(btn_H100);
+let PIT = new ObnizUI.Button(btn_PIT);
+let U = new ObnizUI.Button(btn_U);
+let D = new ObnizUI.Button(btn_D);
+let UU = new ObnizUI.Button(btn_UU);
+let DD = new ObnizUI.Button(btn_DD);
+let L = new ObnizUI.Button(btn_L);
+let R = new ObnizUI.Button(btn_R);
+let LL = new ObnizUI.Button(btn_LL);
+let RR = new ObnizUI.Button(btn_RR);
+let H0 = new ObnizUI.Button(btn_H0);
+let H50 = new ObnizUI.Button(btn_H50);
+
+// ========================================
+// ★追加: △パネル操作連携（p=1 の時のみ有効化）
+// U/D/L/R/PIT の標準ボタンを非表示にして、△パネルの5ボタンから
+// .click() を呼んで isClicked() に反映させる。bploadingとDISPも
+// パネル内へ移動する。p=0 の時はこの処理は一切行わず、標準UIのまま。
+// ========================================
+if (PANEL_MODE) {
+  document.getElementById('customPanelWrap').style.display = 'flex';
+
+  // ★修正【デグレード対策】: .wrapは実機接続時のサイズ崩れ対策で
+  // position:fixed;inset:0(画面全体オーバーレイ)にしたため、
+  // .wrapの外にあるデモバナーが裏に隠れて見えなくなっていた。
+  // デモバナーを.wrapの内側(panelStageより前)へ移動し、
+  // オーバーレイの最前面に表示されるようにする。
+  (function () {
+    const wrapEl = document.getElementById('customPanelWrap');
+    const bannerEl = document.getElementById('demoModeBanner');
+    const stageEl = document.getElementById('panelStage');
+    if (wrapEl && bannerEl && stageEl) {
+      wrapEl.insertBefore(bannerEl, stageEl);
+    }
+  })();
+
+  // ========================================
+  // ★変更: CSSのaspect-ratioだけでは横長ウィンドウ時に比率が崩れるため、
+  // JSでwrapの実際の空きスペースを計算し、2:3を保ったまま最大限フィット
+  // する幅/高さ(px)を都度計算して明示的に指定する（object-fit:containと同じ考え方）。
+  // ========================================
+  (function () {
+    // ★変更: 全体の幅を1.15倍に(元は2:3 → 2*1.15:3)
+    const TARGET_RATIO = (2 / 3) * 1.15; // width / height
+    function fitPanelToWindow() {
+      const stage = document.getElementById('panelStage');
+      const panel = stage ? stage.querySelector('.panel') : null;
+      if (!stage || !panel) return;
+      const cs = getComputedStyle(stage);
+      const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+      const padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+      const availW = stage.clientWidth - padX;
+      const availH = stage.clientHeight - padY;
+      if (availW <= 0 || availH <= 0) return;
+
+      let w = availW;
+      let h = w / TARGET_RATIO;
+      if (h > availH) {
+        h = availH;
+        w = h * TARGET_RATIO;
+      }
+      panel.style.width = w + 'px';
+      panel.style.height = h + 'px';
+
+      // ★修正【なげるギミック対策・再修正】: 情報パネル(左右ボタンに挟まれた
+      // 中央の狭いエリア)自身の実際の幅を測り、そこに収まるフォントサイズを計算する。
+      // 演出の最長行は「全角スペース20個＋絵文字(約2em)＋◯(1em)」＝約23単位分の
+      // 幅になるため、情報パネルの実幅の中にそれが収まるサイズにする
+      // （はみ出し防止に少し余裕を持たせて24で割る）。パネル全体は展開しない。
+      const infoPanelEl0 = document.getElementById('infoPanel');
+      if (infoPanelEl0) {
+        const infoW = infoPanelEl0.clientWidth -
+          (parseFloat(getComputedStyle(infoPanelEl0).paddingLeft) || 0) -
+          (parseFloat(getComputedStyle(infoPanelEl0).paddingRight) || 0);
+        const pitFontSize = Math.max(6, Math.min(26, infoW / 24));
+        panel.style.setProperty('--pit-font', pitFontSize + 'px');
+      }
+    }
+    fitPanelToWindow();
+    // ★修正: 初回はDOM変更直後でレイアウトが未確定な場合があるため、
+    // レイアウト確定後（次の描画フレーム後）にもう一度計算し直す
+    requestAnimationFrame(function () {
+      requestAnimationFrame(fitPanelToWindow);
+    });
+    window.addEventListener('resize', fitPanelToWindow);
+    window.addEventListener('orientationchange', fitPanelToWindow);
+
+    // ★追加【d=0時の崩れ対策】: 実機モード(obniz.js)が接続中にDOMへ
+    // 独自の要素（接続状態表示等）を追加し、それによってbodyのflexレイアウトが
+    // 圧迫されパネルが小さくなる現象への対策。bodyの子要素の増減を監視し、
+    // 変化があるたびにパネルサイズを再計算する。
+    const bodyObserver = new MutationObserver(function () {
+      requestAnimationFrame(fitPanelToWindow);
+    });
+    bodyObserver.observe(document.body, { childList: true });
+  })();
+
+  [U, D, L, R, PIT].forEach(function (btn) {
+    const el = document.getElementById('obniz_button_' + btn.no);
+    if (el) el.style.display = 'none';
+  });
+
+  document.getElementById('btnUp').addEventListener('click', function () { U.click(); });
+  document.getElementById('btnDown').addEventListener('click', function () { D.click(); });
+  document.getElementById('btnLeft').addEventListener('click', function () { L.click(); });
+  document.getElementById('btnRight').addEventListener('click', function () { R.click(); });
+  document.getElementById('btnThrow').addEventListener('click', function () { PIT.click(); });
+
+  // タイトル(bploading)をパネル上部へ移動
+  const panelEl = document.querySelector('#customPanelWrap .panel');
+  const bploadingEl = document.getElementById('bploading');
+  if (panelEl && bploadingEl) {
+    bploadingEl.classList.add('panel-title');
+    panelEl.insertBefore(bploadingEl, panelEl.firstChild);
+  }
+
+  // DISP（「たかさ...OK!」表示）を情報パネルの中へ移動
+  const infoPanel = document.getElementById('infoPanel');
+  const dispDom = document.getElementById('obniz_label_' + DISP.no);
+  if (infoPanel && dispDom) {
+    dispDom.classList.add('disp-text');
+    dispDom.style.fontSize = '';
+    dispDom.style.padding = '';
+    infoPanel.appendChild(dispDom);
+  }
+
+  // ★変更: △パネル表示時は、パネルに含まれない予備ボタン
+  // （いちばんうえ／たくさん／まんなか等）も非表示にする。
+  // 判定基準は DEMO_MODE ではなく PANEL_MODE
+  // （デモは全表示パターン共通のモードとして適用したため、
+  //   「パネルにない予備ボタンを隠す」のはパネル表示固有の話として分離）。
+  // 標準UI（p=0）の時は実機・デモ問わずすべて表示する。
+  [H100, UU, DD, LL, RR, H0, H50].forEach(function (btn) {
+    const el = document.getElementById('obniz_button_' + btn.no);
+    if (el) el.style.display = 'none';
+  });
+}
+
+let ONCONNECT_LOCK = false;
+let LOOP_ACTIVE = false;
+
+obniz.onconnect = async function () {
+
+  if (ONCONNECT_LOCK) {
+    console.log("duplicate onconnect blocked");
+    return;
+  }
+
+  try {
+
+  ONCONNECT_LOCK = true;
+  LOOP_ACTIVE = true;
+
+
+// ========================================
+// STATE VARIABLE
+// ========================================
+
+    let servomotor;
+    // let DISP; // 外に移動したため削除
+
+    // ボタンの宣言は外へ移動したため削除
+
+    let MESSAGE = '', COLOR = '', RAMP = '';
+
+    let STEP = 0;
+
+    let LOC_No = 0, LOC_No_N = 0, LOC_D = 0;
+
+    let LR_No = 0, LR_No_N = 0;
+    let LR_No_DSP = 0, LR_No_N_DSP = 0;
+    let LR_D = 0;
+
+    let LR_LR = '', LR_N_LR = '';
+
+    let ACTION_LOCK = false;
+	LOOP_ACTIVE = true;
+
+// ========================================
+// CONSTANT
+// ========================================
+
+// EEPROM
+
+    const EEPROM_ADDR = 0x50;
+    const ADDR_HEIGHT = 0x0000;
+    const ADDR_DIRECTION = 0x0010;
+
+// function ==============================================================================================
+
+// ========================================
+// Utility
+// ========================================
+
+// delay function ----------------------------------------------------------------------------------
+
+    function delay(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+// 音声読み上げ function ----------------------------------------------------------------------------------
+
+    function speak(text) {
+      const utterance = new SpeechSynthesisUtterance(text);
+
+      if (LG === 'J') {
+      utterance.lang = 'ja-JP';
+      } else {
+      utterance.lang = 'fr-FR';
+    }
+       speechSynthesis.speak(utterance);
+    }
+
+// ========================================
+// EEPROM
+// ========================================
+
+//-[EEPROM Function]----------------------------------------------------------------------------------
+
+    async function writeEEPROM(address, value) {
+      const high = (address >> 8) & 0xFF;
+      const low = address & 0xFF;
+      await obniz.i2c0.write(EEPROM_ADDR, [high, low, value]);
+      await delay(500); // 書き込み完了待ち（必要に応じて調整）
+    }
+
+    async function readEEPROM(address) {
+      const high = (address >> 8) & 0xFF;
+      const low = address & 0xFF;
+      await obniz.i2c0.write(EEPROM_ADDR, [high, low]);
+      const data = await obniz.i2c0.readWait(EEPROM_ADDR, 1);
+      return data[0];
+    }
+
+// ========================================
+// Display / Position
+// ========================================
+
+// LR check function ----------------------------------------------------------------------------------
+    function check_LR() {
+       if (LR_No < 0) {
+           LR_LR = msg_L;
+           LR_No_DSP = LR_No *-1 ;
+       } else if  (LR_No > 0){
+           LR_LR = msg_R;
+           LR_No_DSP = LR_No ;
+       } else {
+           LR_LR = " ";
+           LR_No_DSP = LR_No ;
+       }
+
+       if (LR_No_N < 0) {
+           LR_N_LR = msg_L;
+       } else if  (LR_No_N > 0){
+           LR_N_LR = msg_R;
+       } else {
+           LR_N_LR = " ";
+       }
+    }
+
+// ========================================
+// ★追加: 表示フォーマットの出し分け（パネルUI = 複数行/標準UI = 従来の1行）
+// パネルUIでは色ボールを△パネル側に常時表示しているため、
+// DISPのテキスト側にはCOLORを含めない（二重表示防止）。
+// ========================================
+    function fmtIdle() {
+      if (PANEL_MODE) {
+        return [msg_H, LOC_No_N, '\n', LR_LR, LR_No_N_DSP, '\n', msg_inp].join('');
+      } else {
+        return [COLOR, msg_H, LOC_No_N, LR_LR, LR_No_N_DSP, msg_inp].join('');
+      }
+    }
+    function fmtHeightMoving(oldV, newV) {
+      if (PANEL_MODE) {
+        return [msg_H, '\n', oldV, '\n', '↓', '\n', newV].join('');
+      } else {
+        return [COLOR, msg_H, oldV, ' --> ', newV].join('');
+      }
+    }
+    function fmtHeightArrived(newV, label) {
+      if (PANEL_MODE) {
+        return [msg_H, newV, '\n', label].join('');
+      } else {
+        return [COLOR, msg_H, newV, label].join('');
+      }
+    }
+    function fmtLRMoving(oldLabel, oldVal, newLabel, newVal, limitMsg) {
+      if (PANEL_MODE) {
+        return [oldLabel, oldVal, '\n', '↓', '\n', newLabel, newVal, limitMsg].join('');
+      } else {
+        return [COLOR, oldLabel, oldVal, ' --> ', newLabel, newVal, limitMsg].join('');
+      }
+    }
+
+
+// Position LOC/LR get EEPROM & set/DISP ------------------------------------------------------------------------
+    async function pos_set() {
+        DISP.setText(String(COLOR) + msg_WT);
+        LOC_No_N = await readEEPROM(ADDR_HEIGHT);   // READ LOC DATA
+    }
+
+// Position CLEAR LOC/LR save EEPROM & set/DISP ------------------------------------------------------------------------
+    async function pos_cle() {
+
+        LOC_No = 100 ;
+        LOC_No_N = 100 ;
+        LR_No = 0 ;
+        LR_No_N = LR_No ;
+        check_LR();
+        LR_No_N_DSP = LR_No_DSP ;
+
+        await writeEEPROM(ADDR_HEIGHT,LOC_No);   // WRITE LOC DATA
+        await writeEEPROM(ADDR_DIRECTION,LR_No);   // WRITE LR DATA
+
+        DISP.setText(fmtIdle());
+
+        await ObnizUI.Util.wait(500);
+
+    }
+
+// ========================================
+// Motor
+// ========================================
+
+// STEP function ----------------------------------------------------------------------------------
+
+    function step_u(size) {
+      if (size === 'S') {
+        STEP = LOC_D / 2 * -55 -5 ;
+      } else {
+        STEP = LOC_D * -39 - 10;
+     }
+    }
+    function step_d(size) {
+      if (size === 'S') {
+        STEP = LOC_D / 2 * -53;
+      } else {
+        STEP = LOC_D * -37;
+     }
+    }
+
+// ========================================
+// Click
+// ========================================
+
+//-[click-Free Function]----------------------------------------------------------------------------------
+
+    function CF() {
+       PIT.isClicked();
+       U.isClicked();
+       D.isClicked();
+       UU.isClicked();
+       DD.isClicked();
+       L.isClicked();
+       R.isClicked();
+       LL.isClicked();
+       RR.isClicked();
+       DISP.setText(fmtIdle());
+    }
+
+// ========================================
+// MOTOR UP/DOWN
+// ========================================
+
+async function moveHeight(delta, isBig, playFreq) {
+
+  await pos_set();
+
+  obniz.io11.output(true); // Lock ON
+
+  // 目標値計算
+  LOC_No = LOC_No_N + delta;
+
+  // 限界処理
+  if (LOC_No >= 100) LOC_No = 100;
+  if (LOC_No <= 0) LOC_No = 0;
+
+  // ロック解除（既存仕様維持）
+  await motor1.holdWait();
+  motor1.speed(100);
+  await motor1.stepWait(10);
+
+  LOC_D = LOC_No_N - LOC_No;
+
+  DISP.setText(fmtHeightMoving(LOC_No_N, LOC_No));
+
+  // スピード（小/大）
+  motor1.speed(isBig ? 200 : 100);
+
+  // 方向判定
+  if (delta > 0) {
+    step_u(RS);
+  } else {
+    step_d(RS);
+  }
+
+  await motor1.stepWait(STEP + 10);
+
+  // ★追加: デモモードは、実機のモーター動作時間を実測して反映することを
+  // 検討したが断念し、代わりに移動中の表示をユーザーが確認できるよう
+  // 一律で2000msのディレイを入れる（p=0/p=1共通。実機はモーター動作時間が
+  // これに相当するため不要）。moveLR()の同様のディレイと対応。
+  if (DEMO_MODE) {
+    await ObnizUI.Util.wait(2000);
+  }
+
+  obniz.io11.output(false);
+  await motor1.freeWait();
+
+  LOC_No_N = LOC_No;
+
+  await writeEEPROM(ADDR_HEIGHT, LOC_No);
+
+  // 音
+  await _ai.playAudio(playFreq, 1 * (isBig ? 100 : 50));
+
+  if (LOC_No === 100 || LOC_No === 0) {
+    speak(msg_LM);
+  }
+
+  await CF();
+}
+
+// ========================================
+// MOTOR H100/50/0 MOVE
+// ========================================
+
+async function setHeightPreset(target, label, voice) {
+
+  await pos_set();
+
+  obniz.io11.output(true); // Lock ON
+
+  LOC_No_N = await readEEPROM(ADDR_HEIGHT);
+  LOC_No = target;
+
+  DISP.setText(fmtHeightMoving(LOC_No_N, LOC_No));
+
+  await motor1.holdWait();
+  motor1.speed(200);
+  await motor1.stepWait(10);
+
+  LOC_D = LOC_No_N - LOC_No;
+
+  await writeEEPROM(ADDR_HEIGHT, LOC_No);
+
+  if (LOC_D > 0) {
+    motor1.speed(300);
+    step_d(RS);
+  } else {
+    motor1.speed(200);
+    step_u(RS);
+  }
+
+  await motor1.stepWait(STEP);
+
+  // ★追加: 上と同様、デモモードは移動中の表示確認用に2000msのディレイを
+  // 入れる（いちばんうえ／いちばんした／まんなか、p=0/p=1共通）。
+  if (DEMO_MODE) {
+    await ObnizUI.Util.wait(2000);
+  }
+
+  obniz.io11.output(false);
+  await motor1.freeWait();
+
+  LOC_No_N = LOC_No;
+
+  DISP.setText(fmtHeightArrived(LOC_No_N, label));
+
+  await _ai.playAudio(500, 1 * 100);
+  speak(voice);
+
+  await CF();
+}
+
+// ========================================
+// MOTOR LR MOVE
+// ========================================
+
+async function moveLR(delta, speedValue, playFreq) {
+
+  await pos_set();
+
+  // 現在値更新
+  LR_No = LR_No_N + delta;
+
+  // 限界処理（ここで止める）
+  let isLimit = false;
+
+  if (LR_No >= 100) {
+    LR_No = 100;
+    isLimit = true;
+  }
+
+  if (LR_No <= -100) {
+    LR_No = -100;
+    isLimit = true;
+  }
+
+  check_LR();
+
+  DISP.setText(fmtLRMoving(LR_N_LR, LR_No_N_DSP, LR_LR, LR_No_DSP, isLimit ? msg_LM : ''));
+
+  motor2.speed(speedValue);
+
+  LR_D = LR_No_N - LR_No;
+  STEP = LR_D * 4;
+
+  await motor2.stepWait(STEP);
+
+  // ★追加: デモモードは、移動中の表示をユーザーが確認できるよう
+  // 途中に500msのディレイを入れる（実機はモーター動作時間がこれに相当するため不要）
+  if (DEMO_MODE) {
+    await ObnizUI.Util.wait(500);
+  }
+
+  LR_No_N = LR_No;
+  LR_No_N_DSP = LR_No_DSP;
+
+  await _ai.playAudio(playFreq, 1 * 30);
+
+  if (isLimit) {
+    speak(msg_LM);
+  }
+  await motor2.freeWait();
+  await CF();
+}
+
+// ========================================
+// Initialize
+// ========================================
+
+    obniz.i2c0.start({mode: "master", sda: 1, scl: 2, clock: 400 * 1000, pull: "5v"});
+
+    console.log("Connected to Obniz");
+
+    servomotor = obniz.wired("ServoMotor",{"signal":0});
+    const motor1 = obniz.wired("StepperMotor", {a:3, aa:4, b:6, bb:5});
+    motor1.stepType('1');
+    motor1.speed(50);
+    // ★修正【複数同時接続対策】: 接続直後の freeWait()（保持力解放）を削除。
+    // 他セッションが動作中に、この接続の初期化が割り込んで
+    // ステップがずれる不具合の原因だったため。
+    // await motor1.freeWait();
+
+    const motor2 = obniz.wired("StepperMotor", {a:7, aa:8, b:10, bb:9});
+    motor2.stepType('1');
+    motor2.speed(50);
+    // ★修正【複数同時接続対策】: 同上の理由で削除。
+    // await motor2.freeWait();
+
+    // ★修正【複数同時接続対策】: 接続直後の io11.output(false)（ロック解除）を削除。
+    // ロックは「モーターがフリー(無励磁)の時の位置ずれ防止用」なので、
+    // ロックがかかったままでも実害はない。動作中の他セッションのロックを
+    // 横から解除してしまう方が問題のため、接続時には触らない。
+    // obniz.io11.output(false);
+
+    MESSAGE = '';
+
+    if (RN === 1) {
+      COLOR = '🔴';
+      RAMP = ''
+    } else {
+      COLOR = '🔵';
+      RAMP = ''
+    }
+    // ★変更: センターの色ボール表示は廃止。代わりに、タイトルエリアの
+    // 背景色(--ramp-color)をランプカラーに合わせて設定し、
+    // なげるボタンのアイコンも🔴🔵にする。
+    if (PANEL_MODE) {
+      const panelEl0 = document.querySelector('.panel');
+      if (panelEl0) {
+        panelEl0.style.setProperty('--ramp-color', RN === 1 ? '#cc2b2b' : '#1f5c9e');
+      }
+      const throwBallIconEl = document.getElementById('throwBallIcon');
+      if (throwBallIconEl) throwBallIconEl.textContent = COLOR;
+    }
+
+  STEP = 0;
+  LR_No = 0;
+
+  LR_No = await readEEPROM(ADDR_DIRECTION);   // READ LR DATA
+
+  LR_No_DSP = LR_No ;
+  LR_No_N = LR_No ;
+  LR_No_N_DSP = LR_No;
+
+  if (LR_No < 0) {
+      LR_LR = msg_L;
+      LR_No_DSP = LR_No *-1 ;
+  } else if  (LR_No > 0){
+      LR_LR = msg_R;
+  } else {
+      LR_LR = " ";
+  }
+
+  LR_N_LR = LR_LR ;
+
+//  servomotor.angle(1);
+// await ObnizUI.Util.wait(500);
+//  servomotor.angle(135);
+
+  LOC_No = await readEEPROM(ADDR_HEIGHT);   // READ LOC DATA
+  LOC_No_N = LOC_No;
+
+  LOC_D = 0;
+
+  // 初期位置表示をループ前に1度だけ確実に実行
+  DISP.setText(fmtIdle());
+
+  while (LOOP_ACTIVE) {
+    // ★【修正箇所】複数ブラウザ遅延対策：ループ冒頭の高速画面更新（wait 20ms と DISP.setText）を削除。
+    // 操作していない待機時は、裏で無駄なパケットを飛ばさず静かに待つようにします。
+
+//-[PowerON]----------------------------------------------------------------------------------
+
+//-[PIT]----------------------------------------------------------------------------------
+      if (PIT.isClicked()) {
+        // ★変更: 「なげる」は実機/デモ・パネル/標準UIすべて共通で
+        // 同じギミック(ボール移動演出)を使う。以前はデモ×パネルの時だけ
+        // 「なげます」のみの簡略表示にしていたが、パネルの枠内にも
+        // 問題なく収まるため、区別せず常にこちらを使う。
+        obniz.display.print('！なげます！')
+        DISP.setText(PANEL_MODE ? msg_PIT : (String(COLOR) + msg_PIT));
+
+        speak(msg_PIT);
+        await ObnizUI.Util.wait(700);
+
+        // ★修正【p=0レイアウト崩れ対策】: 以前はここで一旦 DISP.setText(' ')
+        // （空白1文字）にクリアしてから、すぐ別の文字列に差し替えていたため
+        // 目立たなかったが、その差し替え先の文字列(「なげる」表示)を削除した
+        // ことで、この空白状態がservomotor.angle()の待機中(1000ms)ずっと
+        // 表示されるようになってしまった。標準UI(p=0)は文章量に応じて
+        // ボタン群がレイアウト上下に動く(通常の文書フロー)ため、空白化する
+        // 瞬間だけ表示が縮み、ボタンが1行分上に詰まって見えてしまっていた。
+        // 「！なげます！」の表示のまま保持し、ボール移動アニメーションの
+        // 最初のフレームに直接つなげることで、表示行数を変動させない。
+        obniz.display.clear();
+        obniz.display.print(btn_PIT)
+        // ★修正: センターの「なげる」表示は削除。「！なげます！」の表示のみ残す。
+        servomotor.angle(1);
+        await ObnizUI.Util.wait(1000);
+        if (PANEL_MODE) {
+          const infoPanelEl = document.getElementById('infoPanel');
+          if (infoPanelEl) infoPanelEl.classList.add('pit-anim');
+        }
+        // ★修正: ○も2倍サイズに、移動幅(leading/trailing)を2倍に拡大。
+        // 空行(<br>)を2つ入れることで、たかさ表示位置の2行下へ表示位置をずらす。
+        // ★修正【幅が広がるデグレード対策】: 開始位置(1フレーム目)を含む全フレームで
+        // 左側を1単位減らし、その分を右端(◯の後ろ)の余白として追加する。
+        // これにより「合計の文字数(=幅計算の基準値24)」は変えずに、
+        // 開始位置だけをボール1つ分左へ寄せられる。
+        // ★修正【p=0デグレード対策】: 上記の絵文字2倍サイズ・表示位置を2行
+        // 下げる演出は、△パネルUI(p=1)の狭い情報パネルに収めるための専用調整。
+        // 以前は document.getElementById('obniz_label_'+DISP.no) の存在有無で
+        // 分岐していたが、標準UI(p=0、本物のobniz-parts-kits使用)でも同じID
+        // パターンの要素が存在するため意図せず適用されてしまっていた
+        // (「ワクの見た目はPANEL_MODEでのみ分岐する」という2軸設計の原則に反する)。
+        // PANEL_MODEを直接見て分岐し、p=0は従来通りの等倍サイズ・位置ズレなしの
+        // 単純な文字列表示のままにする。
+        function setDispBallFrame(panelLeading, panelTrailing, plainLeading, plainTrailing) {
+          if (PANEL_MODE) {
+            const dispEl = document.getElementById('obniz_label_' + DISP.no);
+            if (dispEl) {
+              dispEl.innerHTML = '<br><br>' + panelLeading +
+                '<span class="pit-ball">' + COLOR + '</span>' +
+                panelTrailing + '<span class="pit-ball">◯</span>' + '　';
+              return;
+            }
+          }
+          DISP.setText([plainLeading, COLOR, plainTrailing + '◯'].join(''));
+        }
+        setDispBallFrame('　', '　　　　　　　　　　　　　　　　　　', '　', '　　　　　　　　　');
+        await _ai.playAudio(350,1 * 30);
+        await ObnizUI.Util.wait(300);
+        setDispBallFrame('　　　　　', '　　　　　　　　　　　　　　', '　　　', '　　　　　　　');
+        await _ai.playAudio(350,1 * 30);
+        await ObnizUI.Util.wait(300);
+        setDispBallFrame('　　　　　　　　　', '　　　　　　　　　　', '　　　　　', '　　　　　');
+        await _ai.playAudio(350,1 * 30);
+        await ObnizUI.Util.wait(300);
+        setDispBallFrame('　　　　　　　　　　　　　　　', '　　　　', '　　　　　　　　', '　　');
+        await _ai.playAudio(350,1 * 30);
+        await ObnizUI.Util.wait(300);
+        setDispBallFrame('　　　　　　　　　　　　　　　　　　　', '', '　　　　　　　　　　', '');
+        await ObnizUI.Util.wait(680);
+        servomotor.angle(135);
+        await _ai.playAudio(390,1 * 100);
+
+        // ★修正【一瞬だけ広がるデグレード対策】: pit-animクラスの解除を
+        // pos_set()の直前（テキストが短くなる直前）まで遅らせる。
+        // 以前はservomotor.angle()やplayAudio()の待機中(約100ms)、
+        // 「まだ長いアニメーション文字列」のまま「通常フォントサイズ」に
+        // 戻ってしまい、その間だけ枠が広がって見えていた。
+        if (PANEL_MODE) {
+          const infoPanelEl2 = document.getElementById('infoPanel');
+          if (infoPanelEl2) infoPanelEl2.classList.remove('pit-anim');
+        }
+        await pos_set();
+        await CF();
+
+//-[U]----------------------------------------------------------------------------------
+} else if (U.isClicked()) {
+  if (ACTION_LOCK) return;
+  ACTION_LOCK = true;
+  try {
+  await _ai.playAudio(400,1 * 50);
+  obniz.display.clear();
+  obniz.display.print('上');
+  DISP.setText(' ');
+
+  await moveHeight(2, false, 400);
+  } finally {
+    ACTION_LOCK = false;
+  }
+
+//-[D]----------------------------------------------------------------------------------
+} else if (D.isClicked()) {
+  if (ACTION_LOCK) return;
+  ACTION_LOCK = true;
+  try {
+  await _ai.playAudio(262,1 * 50);
+  obniz.display.clear();
+  obniz.display.print('下');
+  DISP.setText(' ');
+
+  await moveHeight(-2, false, 262);
+  } finally {
+    ACTION_LOCK = false;
+  }
+
+//-[UU]----------------------------------------------------------------------------------
+} else if (UU.isClicked()) {
+  if (ACTION_LOCK) return;
+  ACTION_LOCK = true;
+  try {
+  await _ai.playAudio(400,1 * 100);
+  await ObnizUI.Util.wait(100);
+  await _ai.playAudio(400,1 * 100);
+
+  obniz.display.clear();
+  obniz.display.print('上上');
+  DISP.setText(' ');
+
+  await moveHeight(10, true, 400);
+  } finally {
+    ACTION_LOCK = false;
+  }
+
+//-[DD]----------------------------------------------------------------------------------
+} else if (DD.isClicked()) {
+  if (ACTION_LOCK) return;
+  ACTION_LOCK = true;
+  try {
+  await _ai.playAudio(262,1 * 100);
+  await ObnizUI.Util.wait(100);
+  await _ai.playAudio(262,1 * 100);
+
+  obniz.display.clear();
+  obniz.display.print('下下');
+  DISP.setText(' ');
+
+  await moveHeight(-10, true, 262);
+    } finally {
+    ACTION_LOCK = false;
+  }
+
+//-[R]----------------------------------------------------------------------------------
+} else if (R.isClicked()) {
+  if (ACTION_LOCK) return;
+  ACTION_LOCK = true;
+  try {
+  await _ai.playAudio(330,1*50);
+  await ObnizUI.Util.wait(30);
+  await _ai.playAudio(392,1*50);
+
+  obniz.display.clear();
+  obniz.display.print('右');
+
+  LR_No = LR_No + 1;
+
+  if (LR_No >= 100) LR_No = 100;
+
+  await moveLR(1, 30, 600);
+  } finally {
+    ACTION_LOCK = false;
+  }
+
+//-[L]----------------------------------------------------------------------------------
+} else if (L.isClicked()) {
+  if (ACTION_LOCK) return;
+  ACTION_LOCK = true;
+  try {
+  await _ai.playAudio(330,1*70);
+  await ObnizUI.Util.wait(30);
+  await _ai.playAudio(349,1*70);
+  await ObnizUI.Util.wait(30);
+  await _ai.playAudio(392,1*50);
+
+  obniz.display.clear();
+  obniz.display.print('左');
+
+  LR_No = LR_No - 1;
+
+  if (LR_No <= -100) LR_No = -100;
+
+  await moveLR(-1, 30, 600);
+
+  } finally {
+    ACTION_LOCK = false;
+  }
+
+//-[RR]----------------------------------------------------------------------------------
+} else if (RR.isClicked()) {
+  if (ACTION_LOCK) return;
+  ACTION_LOCK = true;
+  try {
+  await _ai.playAudio(330,1*50);
+  await ObnizUI.Util.wait(50);
+  await _ai.playAudio(392,2*100);
+
+  obniz.display.clear();
+  obniz.display.print('右右');
+
+  LR_No = LR_No + 10;
+
+  if (LR_No >= 100) LR_No = 100;
+
+  await moveLR(10, 100, 600);
+  } finally {
+    ACTION_LOCK = false;
+  }
+
+//-[LL]----------------------------------------------------------------------------------
+} else if (LL.isClicked()) {
+  if (ACTION_LOCK) return;
+  ACTION_LOCK = true;
+  try {
+  await _ai.playAudio(330,1*70);
+  await ObnizUI.Util.wait(50);
+  await _ai.playAudio(349,1*100);
+  await ObnizUI.Util.wait(50);
+  await _ai.playAudio(392,2*100);
+
+  obniz.display.clear();
+  obniz.display.print('左左');
+
+  LR_No = LR_No - 10;
+
+  if (LR_No <= -100) LR_No = -100;
+
+  await moveLR(-10, 100, 600);
+  } finally {
+    ACTION_LOCK = false;
+  }
+
+//-[H100]----------------------------------------------------------------------------------
+} else if (H100.isClicked()) {
+  if (ACTION_LOCK) return;
+  ACTION_LOCK = true;
+  try {
+  await _ai.playAudio(400,1*50);
+  await ObnizUI.Util.wait(100);
+  await _ai.playAudio(400,1*100);
+  await ObnizUI.Util.wait(100);
+  await _ai.playAudio(400,1*100);
+  await ObnizUI.Util.wait(100);
+  await _ai.playAudio(400,1*100);
+
+  obniz.display.clear();
+  obniz.display.print('H100');
+  DISP.setText(' ');
+
+  await setHeightPreset(100, msg_H100_2, voi_H100);
+  } finally {
+    ACTION_LOCK = false;
+  }
+
+//-[H50]----------------------------------------------------------------------------------
+} else if (H50.isClicked()) {
+  if (ACTION_LOCK) return;
+  ACTION_LOCK = true;
+  try {
+  await motor1.holdWait();
+
+  await _ai.playAudio(400,1*50);
+  await ObnizUI.Util.wait(100);
+  await _ai.playAudio(400,1*100);
+  await ObnizUI.Util.wait(100);
+  await _ai.playAudio(400,1*100);
+
+  obniz.display.clear();
+  obniz.display.print('H50');
+  DISP.setText(' ');
+
+  await setHeightPreset(50, msg_H50_2, voi_H50);
+  } finally {
+    ACTION_LOCK = false;
+  }
+
+//-[H0]----------------------------------------------------------------------------------
+} else if (H0.isClicked()) {
+  if (ACTION_LOCK) return;
+  ACTION_LOCK = true;
+  try {
+  await _ai.playAudio(400,1*50);
+  await ObnizUI.Util.wait(100);
+  await _ai.playAudio(400,1*100);
+  await ObnizUI.Util.wait(100);
+  await _ai.playAudio(400,1*100);
+  await ObnizUI.Util.wait(100);
+  await _ai.playAudio(400,1*100);
+
+  obniz.display.clear();
+  obniz.display.print('H0');
+  DISP.setText(' ');
+
+  await setHeightPreset(0, msg_H0_2, voi_H0);
+  } finally {
+    ACTION_LOCK = false;
+  }
+
+//-[LOOP]----------------------------------------------------------------------------------
+      } else {
+        // ★【修正箇所】待機時のウェイトを ObnizUI.Util.wait に統一
+        await ObnizUI.Util.wait(500);
+        MESSAGE = '';
+      }
+	  }
+    } finally {
+    ONCONNECT_LOCK = false;
+    LOOP_ACTIVE = false;
+  }
+};
+
+obniz.onclose = function () {
+  LOOP_ACTIVE = false;
+  ONCONNECT_LOCK = false;  // ★修正: 再接続時に必ずクリーンな状態から始められるようにする
+};
+
+})(); // ★main() 終了
+    </script>
+  </body>
+</html>
