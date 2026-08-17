@@ -352,6 +352,43 @@
         padding:1.5vh 1vw;
         box-sizing:border-box;
       }
+      /* ============================================================
+         ★PoC追加: 操作パネルの横にイラスト表示エリアを並べるための行コンテナ。
+         .wrap(縦方向: バナー→content-row)の中に、横方向(パネル|イラスト)を
+         もう1段追加する。panel-stageの幅はこのコンテナのflex配分で
+         自動的に決まるため、fitPanelToWindow()側の計算(stage.clientWidth
+         を読むだけ)は変更不要。
+         ============================================================ */
+      .content-row{
+        flex:1 1 auto;
+        min-height:0;
+        display:flex;
+        flex-direction:row;
+        gap:1vw;
+        width:100%;
+      }
+      .content-row .panel-stage{
+        flex:1 1 0;
+        min-width:0;
+      }
+      .illust-stage{
+        flex:1 1 0;
+        min-width:0;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:1.5vh 1vw;
+        box-sizing:border-box;
+      }
+      .illust-stage svg{
+        width:100%;
+        height:100%;
+      }
+      /* ★PoC: ボールの上下移動アニメーション。moveHeight/setHeightPresetの
+         DEMO_MODEディレイ(2000ms)と時間を合わせてある。 */
+      #illustBallGroup{
+        transition: transform 2s ease;
+      }
       .demo-banner{
         background:#fff3cd;color:#7a5b00;border:1px solid #ffe08a;
         border-radius:4px;padding:6px 12px;margin:0 0 8px 0;font-size:13px;
@@ -495,8 +532,11 @@
 
     <!-- ============================================================
          ★追加: △パターン操作パネル（p=1 の時のみ表示。JSで表示/移動する）
+         ★PoC追加: パネルの横にロボットランプのイラスト表示エリアを追加
+         (content-rowで横並びにする)。ボール上下移動のみプロトタイプ実装。
          ============================================================ -->
     <div class="wrap" id="customPanelWrap" style="display:none;">
+      <div class="content-row" id="contentRow">
       <div class="panel-stage" id="panelStage">
       <div class="panel">
 
@@ -536,6 +576,25 @@
         </div>
 
       </div>
+      </div>
+
+      <!-- ★PoC: ロボットランプのイラスト(線画SVG)。ボールの上下移動のみ実装。
+           左右移動・ボールリリースは今後の検証項目(docs/ramp-illustration-poc.md参照)。 -->
+      <div class="illust-stage" id="illustStage">
+        <svg viewBox="0 0 200 300" preserveAspectRatio="xMidYMid meet" aria-label="ロボットランプのイラスト">
+          <!-- 地面 -->
+          <line x1="20" y1="280" x2="180" y2="280" stroke="#1f5c73" stroke-width="4" stroke-linecap="round"/>
+          <!-- 本体の台座 -->
+          <rect x="70" y="262" width="60" height="20" rx="4" fill="#1f5c73"/>
+          <!-- 高さ方向の支柱(ボールが上下する軌道) -->
+          <line x1="100" y1="266" x2="100" y2="40" stroke="#1f5c73" stroke-width="6" stroke-linecap="round"/>
+          <!-- ボール本体(高さに応じてtranslateYで移動。JS: updateIllustHeight()) -->
+          <g id="illustBallGroup">
+            <circle cx="100" cy="262" r="16" fill="var(--ramp-color, #cc2b2b)" stroke="#111" stroke-width="2"/>
+          </g>
+        </svg>
+      </div>
+
       </div>
     </div>
 
@@ -884,7 +943,10 @@ if (PANEL_MODE) {
   (function () {
     const wrapEl = document.getElementById('customPanelWrap');
     const bannerEl = document.getElementById('demoModeBanner');
-    const stageEl = document.getElementById('panelStage');
+    // ★PoC修正: panelStageがcontent-rowの中に入れ子になったため、
+    // wrapElの直接の子である contentRow を基準に挿入する
+    // (insertBeforeの参照ノードはwrapElの直接の子でなければならない)。
+    const stageEl = document.getElementById('contentRow');
     if (wrapEl && bannerEl && stageEl) {
       wrapEl.insertBefore(bannerEl, stageEl);
     }
@@ -990,6 +1052,22 @@ if (PANEL_MODE) {
     const el = document.getElementById('obniz_button_' + btn.no);
     if (el) el.style.display = 'none';
   });
+}
+
+// ========================================
+// ★PoC: ロボットランプ イラスト表示 — ボール上下移動アニメーション
+// ========================================
+// 高さ(0-100)をイラストのボール位置(SVG座標系のtranslateY)に変換する。
+// PANEL_MODE以外(このPoCではillust-stage自体が存在しない)や、要素が
+// 見つからない場合は何もしない(本体側の状態機械には一切影響させない)。
+// CSS側の #illustBallGroup { transition: transform 2s ease; } と対で、
+// moveHeight/setHeightPresetのDEMO_MODEディレイ(2000ms)に時間を合わせている。
+function updateIllustHeight(value) {
+  const g = document.getElementById('illustBallGroup');
+  if (!g) return;
+  const clamped = Math.max(0, Math.min(100, value));
+  const RANGE_PX = 210; // 高さ0→100の移動量(SVG viewBox座標系のpx)
+  g.style.transform = 'translateY(' + (-(clamped / 100) * RANGE_PX) + 'px)';
 }
 
 let ONCONNECT_LOCK = false;
@@ -1239,6 +1317,7 @@ async function moveHeight(delta, isBig, playFreq) {
   LOC_D = LOC_No_N - LOC_No;
 
   DISP.setText(fmtHeightMoving(LOC_No_N, LOC_No));
+  updateIllustHeight(LOC_No); // ★PoC: イラストのボールも目標の高さへ移動開始
 
   // スピード（小/大）
   motor1.speed(isBig ? 200 : 100);
@@ -1291,6 +1370,7 @@ async function setHeightPreset(target, label, voice) {
   LOC_No = target;
 
   DISP.setText(fmtHeightMoving(LOC_No_N, LOC_No));
+  updateIllustHeight(LOC_No); // ★PoC: イラストのボールも目標の高さへ移動開始
 
   await motor1.holdWait();
   motor1.speed(200);
@@ -1423,10 +1503,13 @@ async function moveLR(delta, speedValue, playFreq) {
     // ★変更: センターの色ボール表示は廃止。代わりに、タイトルエリアの
     // 背景色(--ramp-color)をランプカラーに合わせて設定し、
     // なげるボタンのアイコンも🔴🔵にする。
+    // ★PoC修正: --ramp-colorは.panelではなく共通の祖先(customPanelWrap)に
+    // 設定する。イラスト表示エリア(.illust-stage、.panelの兄弟要素)にも
+    // 同じ値をCSS変数の継承で反映させるため。
     if (PANEL_MODE) {
-      const panelEl0 = document.querySelector('.panel');
-      if (panelEl0) {
-        panelEl0.style.setProperty('--ramp-color', RN === 1 ? '#cc2b2b' : '#1f5c9e');
+      const panelWrapEl0 = document.getElementById('customPanelWrap');
+      if (panelWrapEl0) {
+        panelWrapEl0.style.setProperty('--ramp-color', RN === 1 ? '#cc2b2b' : '#1f5c9e');
       }
       const throwBallIconEl = document.getElementById('throwBallIcon');
       if (throwBallIconEl) throwBallIconEl.textContent = COLOR;
@@ -1463,6 +1546,7 @@ async function moveLR(delta, speedValue, playFreq) {
 
   // 初期位置表示をループ前に1度だけ確実に実行
   DISP.setText(fmtIdle());
+  updateIllustHeight(LOC_No_N); // ★PoC: イラストのボールも起動時の高さに合わせる
 
   while (LOOP_ACTIVE) {
     // ★【修正箇所】複数ブラウザ遅延対策：ループ冒頭の高速画面更新（wait 20ms と DISP.setText）を削除。
