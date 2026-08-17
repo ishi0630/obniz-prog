@@ -1471,29 +1471,39 @@ async function moveLR(delta, speedValue, playFreq) {
         // 左側を1単位減らし、その分を右端(◯の後ろ)の余白として追加する。
         // これにより「合計の文字数(=幅計算の基準値24)」は変えずに、
         // 開始位置だけをボール1つ分左へ寄せられる。
-        function setDispBallFrame(leading, trailing) {
-          const dispEl = document.getElementById('obniz_label_' + DISP.no);
-          if (dispEl) {
-            dispEl.innerHTML = '<br><br>' + leading +
-              '<span class="pit-ball">' + COLOR + '</span>' +
-              trailing + '<span class="pit-ball">◯</span>' + '　';
-          } else {
-            DISP.setText([leading, COLOR, trailing + '◯'].join(''));
+        // ★修正【p=0デグレード対策】: 上記の絵文字2倍サイズ・表示位置を2行
+        // 下げる演出は、△パネルUI(p=1)の狭い情報パネルに収めるための専用調整。
+        // 以前は document.getElementById('obniz_label_'+DISP.no) の存在有無で
+        // 分岐していたが、標準UI(p=0、本物のobniz-parts-kits使用)でも同じID
+        // パターンの要素が存在するため意図せず適用されてしまっていた
+        // (「ワクの見た目はPANEL_MODEでのみ分岐する」という2軸設計の原則に反する)。
+        // PANEL_MODEを直接見て分岐し、p=0は従来通りの等倍サイズ・位置ズレなしの
+        // 単純な文字列表示のままにする。
+        function setDispBallFrame(panelLeading, panelTrailing, plainLeading, plainTrailing) {
+          if (PANEL_MODE) {
+            const dispEl = document.getElementById('obniz_label_' + DISP.no);
+            if (dispEl) {
+              dispEl.innerHTML = '<br><br>' + panelLeading +
+                '<span class="pit-ball">' + COLOR + '</span>' +
+                panelTrailing + '<span class="pit-ball">◯</span>' + '　';
+              return;
+            }
           }
+          DISP.setText([plainLeading, COLOR, plainTrailing + '◯'].join(''));
         }
-        setDispBallFrame('　', '　　　　　　　　　　　　　　　　　　');
+        setDispBallFrame('　', '　　　　　　　　　　　　　　　　　　', '　', '　　　　　　　　　');
         await _ai.playAudio(350,1 * 30);
         await ObnizUI.Util.wait(300);
-        setDispBallFrame('　　　　　', '　　　　　　　　　　　　　　');
+        setDispBallFrame('　　　　　', '　　　　　　　　　　　　　　', '　　　', '　　　　　　　');
         await _ai.playAudio(350,1 * 30);
         await ObnizUI.Util.wait(300);
-        setDispBallFrame('　　　　　　　　　', '　　　　　　　　　　');
+        setDispBallFrame('　　　　　　　　　', '　　　　　　　　　　', '　　　　　', '　　　　　');
         await _ai.playAudio(350,1 * 30);
         await ObnizUI.Util.wait(300);
-        setDispBallFrame('　　　　　　　　　　　　　　　', '　　　　');
+        setDispBallFrame('　　　　　　　　　　　　　　　', '　　　　', '　　　　　　　　', '　　');
         await _ai.playAudio(350,1 * 30);
         await ObnizUI.Util.wait(300);
-        setDispBallFrame('　　　　　　　　　　　　　　　　　　　', '');
+        setDispBallFrame('　　　　　　　　　　　　　　　　　　　', '', '　　　　　　　　　　', '');
         await ObnizUI.Util.wait(680);
         servomotor.angle(135);
         await _ai.playAudio(390,1 * 100);
