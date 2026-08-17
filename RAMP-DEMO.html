@@ -28,7 +28,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <!-- ============================================================
-         ★追加: 画面上部にJSエラーを表示するバナー(原因切り分け用)
+         ★追加: 画面上部にJSエラーを表示するバナー（原因切り分け用）
          CSS等の読み込み失敗(致命的でない)は無視し、JSの実行エラーのみ表示する
          ============================================================ -->
     <script>
@@ -49,7 +49,7 @@
         if (e.filename) text += '\n  場所: ' + e.filename + ':' + e.lineno;
         showFatalBanner(text);
       }, true);
-      // ★追加: await中に失敗したPromise(obniz.js読み込み失敗等)も拾う
+      // ★追加: await中に失敗したPromise（obniz.js読み込み失敗等）も拾う
       window.addEventListener('unhandledrejection', function (e) {
         var reason = e.reason;
         var text = 'エラー(非同期): ' + (reason && reason.message ? reason.message : String(reason));
@@ -58,7 +58,7 @@
     </script>
 
     <!-- ============================================================
-         ★追加: 起動直後(操作ボタンを押すまで)だけ、数字キーで表示UI(p)を
+         ★追加: 起動直後（操作ボタンを押すまで）だけ、数字キーで表示UI(p)を
          切り替えられる仕組み。1 = 標準UI(p=0) / 2 = △パネルUI(p=1)
          いずれかの操作ボタンが押された時点で自動的に無効化する。
          URLパラメータを書き換えてページを再読み込みするだけの単純な仕組み。
@@ -73,7 +73,7 @@
           document.removeEventListener('click', onAnyButtonClick, true);
         }
 
-        // ★いずれかの操作ボタン(△パネル/標準UIどちらのボタンも)が押されたら無効化
+        // ★いずれかの操作ボタン（△パネル/標準UIどちらのボタンも）が押されたら無効化
         function onAnyButtonClick(e) {
           var t = e.target;
           if (t && t.closest && (t.closest('#customPanelWrap .btn') || t.closest('#OBNIZ_OUTPUT button'))) {
@@ -99,10 +99,16 @@
     </script>
 
     <!-- ============================================================
+         ★追加: 簡易jQuery代替
+         外部CDN(jquery-3.2.1.min.js)への依存をなくすための自前実装。
+         obniz-parts-kits の ui/index.js が使う最小限の機能のみ。
+         実機/デモ両方のモードで共通して使用する。
+         ============================================================ -->
+    <!-- ============================================================
          ★変更: 軽量jQuery代替／ObnizUI(Button/Label)自前実装は、
-         △パネルUI(p=1)の時だけ使う関数として定義しておく
-         (即時実行せず、main()内でPANEL_MODEを見てから呼び出す)。
-         標準UI(p=0)の時は、この下で本物のjQuery/obniz-parts-kits/
+         △パネルUI（p=1）の時だけ使う関数として定義しておく
+         （即時実行せず、main()内でPANEL_MODEを見てから呼び出す）。
+         標準UI（p=0）の時は、この下で本物のjQuery/obniz-parts-kits/
          Bootstrapを動的に読み込み、"もともとの標準UI"をそのまま使う。
          ============================================================ -->
     <script>
@@ -204,7 +210,7 @@
           const s = document.createElement('script');
           s.src = src;
           s.onload = resolve;
-          s.onerror = () => reject(new Error(src + ' の読み込みに失敗しました(ネットワークをご確認ください)'));
+          s.onerror = () => reject(new Error(src + ' の読み込みに失敗しました（ネットワークをご確認ください）'));
           document.head.appendChild(s);
         });
       }
@@ -214,7 +220,7 @@
           l.rel = 'stylesheet';
           l.href = href;
           l.onload = resolve;
-          l.onerror = () => reject(new Error(href + ' の読み込みに失敗しました(ネットワークをご確認ください)'));
+          l.onerror = () => reject(new Error(href + ' の読み込みに失敗しました（ネットワークをご確認ください）'));
           document.head.appendChild(l);
         });
       }
@@ -223,8 +229,8 @@
         await loadScript('https://obniz.io/js/jquery-3.2.1.min.js');
         await loadScript('https://unpkg.com/obniz-parts-kits@0.18.0/ui/index.js');
         // ★追加: 音(_ai.playAudio)も本物のai/index.js一式を読み込む
-        // (元のscriptタグの読み込み順と同じ順序。ai/index.jsが依存するため
-        //   howler/opencv/clmtrackr系も全て読み込む必要がある)
+        // （元のscriptタグの読み込み順と同じ順序。ai/index.jsが依存するため
+        //   howler/opencv/clmtrackr系も全て読み込む必要がある）
         await loadScript('https://unpkg.com/obniz-parts-kits@0.18.0/ai/howler2.1.2/howler.js');
         await loadScript('https://unpkg.com/obniz-parts-kits@0.18.0/ai/opencv3.4/opencv.js');
         await loadScript('https://unpkg.com/obniz-parts-kits@0.18.0/ai/clmtrackr/clmtrackr.js');
@@ -234,14 +240,14 @@
         await loadScript('https://unpkg.com/obniz-parts-kits@0.18.0/ai/index.js');
       }
 
-      // ★修正: _ai.playAudio の自前実装(Web Audio)を、実物の
+      // ★修正: _ai.playAudio の自前実装（Web Audio）を、実物の
       // ai/index.js の playAudio と全く同じ挙動になるよう修正。
-      // (実物はgainノードを挟まずオシレーターを直結=音量を絞っていない、
+      // （実物はgainノードを挟まずオシレーターを直結＝音量を絞っていない、
       //   かつ setTimeout(ms) で resolve するため、await した時に
       //   実際に鳴っている時間だけ待たされる。以前の自前実装は
       //   音量を絞り、即座にresolveしてしまっていたため、
       //   標準UI(本物のai/index.js使用)と音・タイミングの両方が
-      //   ずれていた。△パネルUI(軽量実装)の時だけ使う。
+      //   ずれていた。△パネルUI（軽量実装）の時だけ使う。
       function installLightweightAi() {
         window._ai = {
           playAudio: function (hz, ms) {
@@ -270,7 +276,7 @@
       /* ============================================================
          ★変更: Bootstrapの代わりの最小限のボタン装飾は、
          「軽量自前実装(installLightweightObnizUI)を使う時」だけに限定する
-         (body.lightweight-ui クラスでスコープ)。
+         （body.lightweight-ui クラスでスコープ）。
          標準UI(p=0)で本物のBootstrap/obniz-parts-kitsを読み込む場合は、
          このCSSは一切適用されず、本来のBootstrapの見た目がそのまま出る。
          ============================================================ */
@@ -293,7 +299,7 @@
 
     <style>
       /* ============================================================
-         ★追加: △パターン操作パネル(p=1 の時に使用)のスタイル
+         ★追加: △パターン操作パネル（p=1 の時に使用）のスタイル
          ============================================================ */
       :root{
         --panel-main: #1f5c73;
@@ -350,18 +356,21 @@
         border-radius:6px;
         box-sizing:border-box;
       }
-      .panel .row{ display:flex; gap:6px; }
+      .panel .row{ display:flex; gap:6px; min-height:0; }
       .panel .row.top{ flex:1; }
       .panel .row.middle{ flex:2.6; }
       .panel .row.bottom{ flex:1.1; }
 
       .panel-title{
         flex:0 0 auto;
-        margin:2px 0 0 0;
+        margin:0;
+        padding:6px 0;
         text-align:center;
         color:#fff;
         font-size:34px;
         font-weight:bold;
+        border-radius:6px 6px 0 0;
+        background: var(--ramp-color, var(--panel-main)); /* ★追加: ランプカラーに合わせる(JS側で--ramp-colorを設定) */
       }
 
       .panel{ position:relative; }
@@ -386,8 +395,8 @@
       .panel .btn:active{ transform: scale(0.96); background:#c9dee6; }
 
       .panel .up{ width:100%; }
-      .panel .left{ flex:1; }
-      .panel .right{ flex:1; }
+      .panel .left{ flex:1; min-width:0; }
+      .panel .right{ flex:1; min-width:0; }
 
       .panel .down{ flex:1.23; }
       .panel .throw{ flex:1; border:4px solid var(--panel-red); }
@@ -401,15 +410,18 @@
       .arrow-left{ border-right:66px solid var(--panel-main); }
       .arrow-right{ border-left:66px solid var(--panel-main); }
 
-      .throw-ball{
-        width:66px;height:66px;border-radius:50%;background:#111;position:relative;margin-bottom:4px;
-      }
-      .throw-ball::before,.throw-ball::after{
-        content:"";position:absolute;background:#fff;top:0;left:50%;width:3px;height:100%;
+      .throw-ball-icon{
+        font-size:66px;
+        line-height:1;
+        display:block;
+        margin-bottom:4px;
       }
 
       .panel .info{
+        position:relative;
         flex:1.6;
+        min-width:0;
+        overflow:hidden;
         background:#fff;
         border-radius:4px;
         padding:10px;
@@ -421,12 +433,6 @@
         line-height:1.5;
         cursor:default;
       }
-      .panel .info .ball-icon{
-        font-size:66px;
-        line-height:1;
-        display:block;
-        margin-bottom:2px;
-      }
       .panel .info .disp-text{
         font-size:26px;
         font-weight:bold;
@@ -434,24 +440,25 @@
       }
 
       /* ============================================================
-         ★追加【なげるギミック対策】: ボール移動アニメーション中だけ、
-         情報パネルをパネル全幅に一時的に拡張し(position:absoluteで
-         左右ボタンの上に重ねる)、文字サイズもJS側で計算した
-         --pit-font(パネル幅に応じた可変値)を使うことで、
-         全角スペースを使った横移動演出がどんな画面幅でも
-         はみ出さず収まるようにする。
+         ★修正【なげるギミック対策・再修正】: 以前はアニメーション中に
+         情報パネルをパネル全幅へ展開し他のボタン/枠を覆っていたが、
+         「他のボタンや枠が見えなくなる」問題があったため撤回。
+         情報パネルの位置・大きさは常に変えず、その実際の幅に収まる
+         文字サイズ(--pit-font、JS側で情報パネル自身の幅から計算)に
+         縮小するだけにする。ボタン・枠は常に表示されたまま。
          ============================================================ */
-      .panel .info.pit-anim{
-        position:absolute;
-        inset:0;
-        z-index:5;
-        justify-content:center;
-        align-items:center;
-        border-radius:6px;
-      }
       .panel .info.pit-anim .disp-text{
-        font-size: var(--pit-font, 16px);
+        font-size: var(--pit-font, 12px);
         white-space:nowrap;
+      }
+      /* ★追加: なげるアニメーション中のボール(絵文字)だけ2倍サイズにする。
+         周囲の全角スペースは通常サイズのままなので、幅への影響はわずか。
+         標準UI・パネルUIどちらでも効くよう汎用クラスにしておく。 */
+      .pit-ball{
+        font-size: 2em;
+        display:inline-block;
+        line-height:1;
+        vertical-align:middle;
       }
     </style>
   </head>
@@ -459,13 +466,13 @@
   <body>
 
     <!-- ============================================================
-         標準UI用タイトル表示(p=0 の時はここに表示されたまま)
+         標準UI用タイトル表示（p=0 の時はここに表示されたまま）
          p=1 の時は、JSでこのh3を △パネルの上部へ移動する
          ============================================================ -->
 
     <!-- ============================================================
-         ★修正: デモモードバナーはページ最上部に配置(p=0/1どちらでも
-         DEMO_MODEだけで表示/非表示を制御するため、パネルの外に出した)
+         ★修正: デモモードバナーはページ最上部に配置（p=0/1どちらでも
+         DEMO_MODEだけで表示/非表示を制御するため、パネルの外に出した）
          ============================================================ -->
     <div class="demo-banner" id="demoModeBanner" style="display:none; text-align:center;">
       デモモード：操作確認のみ
@@ -474,7 +481,7 @@
     <h3 id="bploading" style="text-align:center;">LOADING...</h3>
 
     <!-- ============================================================
-         ★追加: △パターン操作パネル(p=1 の時のみ表示。JSで表示/移動する)
+         ★追加: △パターン操作パネル（p=1 の時のみ表示。JSで表示/移動する）
          ============================================================ -->
     <div class="wrap" id="customPanelWrap" style="display:none;">
       <div class="panel-stage" id="panelStage">
@@ -494,7 +501,6 @@
           </button>
 
           <div class="info" id="infoPanel">
-            <span class="ball-icon" id="colorBall"></span>
             <!-- DISP(たかさ表示)はJSでここに移動されます -->
           </div>
 
@@ -511,7 +517,7 @@
           </button>
 
           <button class="btn throw" id="btnThrow">
-            <span class="throw-ball"></span>
+            <span class="throw-ball-icon" id="throwBallIcon"></span>
             なげる
           </button>
         </div>
@@ -521,7 +527,7 @@
     </div>
 
     <!-- ============================================================
-         標準UI(いちばんうえ・たくさん等)のボタン出力先。
+         標準UI（いちばんうえ・たくさん等）のボタン出力先。
          p=1 の時も、△パネルにない予備ボタン群はここに残る。
          ============================================================ -->
     <div id="OBNIZ_OUTPUT"></div>
@@ -531,7 +537,7 @@
 (async function main() {
 
 // ========================================
-// ★★★ SINGLE TAB GUARD(修正版)★★★
+// ★★★ SINGLE TAB GUARD（修正版）★★★
 // data:URL等、sessionStorageが使用禁止の環境でも落ちないようにする
 // ========================================
 
@@ -583,8 +589,8 @@ const RS = getParam("rs", "S");
 // ★設計方針: 「モード軸」と「表示軸」は独立した別々の概念として扱う
 //
 //   モード軸 (DEMO_MODE) … obniz本体の実体(Fake/実機)、デモ限定の挙動
-//                          (予備ボタン非表示・なげる簡略化・移動時ディレイ等)
-//   表示軸  (PANEL_MODE) … どのUIレイアウトを見せるか(△パネル/標準ボタン)
+//                          （予備ボタン非表示・なげる簡略化・移動時ディレイ等）
+//   表示軸  (PANEL_MODE) … どのUIレイアウトを見せるか（△パネル/標準ボタン）
 //
 //   → 表示パターンを今後追加する場合も、DEMO_MODEの判定はUIの種類を問わず
 //     常に "if (DEMO_MODE) { ... }" だけで済むようにする。
@@ -595,7 +601,7 @@ const PANEL_MODE = getParam("p", "0") === "1";  // ★変更: 省略時のデフ
 
 // ★追加: デモモード時は lg パラメータの指定を無視し、常に日本語(J)にする
 // ★修正: lgパラメータの大文字小文字を区別しないようにする
-// ("j"のような小文字指定が"J"と一致せずフランス語側に落ちていたバグを修正)
+// （"j"のような小文字指定が"J"と一致せずフランス語側に落ちていたバグを修正）
 const LG = (DEMO_MODE ? "J" : getParam("lg", "J")).toUpperCase();
 
 // ========================================
@@ -608,14 +614,14 @@ if (DEMO_MODE) {
 
 // ========================================
 // ★追加: 実機モードの時だけ、本物のobniz.jsをCDNから動的に読み込む
-// (デモモードではobniz.js自体を読み込まない=実機不要・オフラインでも動作)
+// （デモモードではobniz.js自体を読み込まない＝実機不要・オフラインでも動作）
 // ========================================
 if (!DEMO_MODE) {
   await new Promise((resolve, reject) => {
     const s = document.createElement('script');
     s.src = 'https://unpkg.com/obniz@3.19.0/obniz.js';
     s.onload = resolve;
-    s.onerror = () => reject(new Error('obniz.jsの読み込みに失敗しました(ネットワークをご確認ください)'));
+    s.onerror = () => reject(new Error('obniz.jsの読み込みに失敗しました（ネットワークをご確認ください）'));
     document.head.appendChild(s);
   });
 }
@@ -624,7 +630,7 @@ if (!DEMO_MODE) {
 // ★追加: UIライブラリの選択
 // 標準UI(p=0) … 「もともとの標準UI」を再現するため、本物のBootstrap CSS /
 //               本物のobniz-parts-kits ui/index.js をCDNから読み込む
-// △パネルUI(p=1) … 軽量な自前実装(外部CDN不要)を使う
+// △パネルUI(p=1) … 軽量な自前実装（外部CDN不要）を使う
 // ========================================
 if (PANEL_MODE) {
   installLightweightJQuery();
@@ -636,10 +642,10 @@ if (PANEL_MODE) {
 }
 
 // ========================================
-// ★追加: テストモード：FAKE OBNIZ(実機なしでシミュレーション)
+// ★追加: テストモード：FAKE OBNIZ（実機なしでシミュレーション）
 // たかさ(EEPROM ADDR_HEIGHT=0x0000)と左右位置(ADDR_DIRECTION=0x0010)を
 // メモリ上に保持し、実機がなくてもエラーにならず動作を確認できます。
-// d=1 の時のみ使用(d=0 の時は本物の Obniz クラスを使用)。
+// d=1 の時のみ使用（d=0 の時は本物の Obniz クラスを使用）。
 // ========================================
 
 class FakeObniz {
@@ -831,7 +837,7 @@ class FakeObniz {
       btn_H50 = 'Milieu 50';
     }
 
-// ★【修正箇所】UI増殖バグ対策：UI生成をonconnectの外(1度しか走らない場所)に移動
+// ★【修正箇所】UI増殖バグ対策：UI生成をonconnectの外（1度しか走らない場所）に移動
 let DISP = new ObnizUI.Label('label');
 DISP.setText(msg_TXT);
 
@@ -849,7 +855,7 @@ let H0 = new ObnizUI.Button(btn_H0);
 let H50 = new ObnizUI.Button(btn_H50);
 
 // ========================================
-// ★追加: △パネル操作連携(p=1 の時のみ有効化)
+// ★追加: △パネル操作連携（p=1 の時のみ有効化）
 // U/D/L/R/PIT の標準ボタンを非表示にして、△パネルの5ボタンから
 // .click() を呼んで isClicked() に反映させる。bploadingとDISPも
 // パネル内へ移動する。p=0 の時はこの処理は一切行わず、標準UIのまま。
@@ -857,13 +863,28 @@ let H50 = new ObnizUI.Button(btn_H50);
 if (PANEL_MODE) {
   document.getElementById('customPanelWrap').style.display = 'flex';
 
+  // ★修正【デグレード対策】: .wrapは実機接続時のサイズ崩れ対策で
+  // position:fixed;inset:0(画面全体オーバーレイ)にしたため、
+  // .wrapの外にあるデモバナーが裏に隠れて見えなくなっていた。
+  // デモバナーを.wrapの内側(panelStageより前)へ移動し、
+  // オーバーレイの最前面に表示されるようにする。
+  (function () {
+    const wrapEl = document.getElementById('customPanelWrap');
+    const bannerEl = document.getElementById('demoModeBanner');
+    const stageEl = document.getElementById('panelStage');
+    if (wrapEl && bannerEl && stageEl) {
+      wrapEl.insertBefore(bannerEl, stageEl);
+    }
+  })();
+
   // ========================================
   // ★変更: CSSのaspect-ratioだけでは横長ウィンドウ時に比率が崩れるため、
   // JSでwrapの実際の空きスペースを計算し、2:3を保ったまま最大限フィット
-  // する幅/高さ(px)を都度計算して明示的に指定する(object-fit:containと同じ考え方)。
+  // する幅/高さ(px)を都度計算して明示的に指定する（object-fit:containと同じ考え方）。
   // ========================================
   (function () {
-    const TARGET_RATIO = 2 / 3; // width / height
+    // ★変更: 全体の幅を1.15倍に(元は2:3 → 2*1.15:3)
+    const TARGET_RATIO = (2 / 3) * 1.15; // width / height
     function fitPanelToWindow() {
       const stage = document.getElementById('panelStage');
       const panel = stage ? stage.querySelector('.panel') : null;
@@ -884,16 +905,23 @@ if (PANEL_MODE) {
       panel.style.width = w + 'px';
       panel.style.height = h + 'px';
 
-      // ★追加【なげるギミック対策】: パネル幅から、ボール移動演出の
-      // 文字サイズ(--pit-font)を逆算する。演出の最長行は
-      // 「全角スペース20個＋絵文字(約2em)＋◯(1em)」＝約23単位分の幅になるため、
-      // それがパネル幅に収まるフォントサイズを計算する(少し余裕を持たせて26で割る)。
-      const pitFontSize = Math.max(10, Math.min(26, w / 26));
-      panel.style.setProperty('--pit-font', pitFontSize + 'px');
+      // ★修正【なげるギミック対策・再修正】: 情報パネル(左右ボタンに挟まれた
+      // 中央の狭いエリア)自身の実際の幅を測り、そこに収まるフォントサイズを計算する。
+      // 演出の最長行は「全角スペース20個＋絵文字(約2em)＋◯(1em)」＝約23単位分の
+      // 幅になるため、情報パネルの実幅の中にそれが収まるサイズにする
+      // （はみ出し防止に少し余裕を持たせて24で割る）。パネル全体は展開しない。
+      const infoPanelEl0 = document.getElementById('infoPanel');
+      if (infoPanelEl0) {
+        const infoW = infoPanelEl0.clientWidth -
+          (parseFloat(getComputedStyle(infoPanelEl0).paddingLeft) || 0) -
+          (parseFloat(getComputedStyle(infoPanelEl0).paddingRight) || 0);
+        const pitFontSize = Math.max(6, Math.min(26, infoW / 24));
+        panel.style.setProperty('--pit-font', pitFontSize + 'px');
+      }
     }
     fitPanelToWindow();
     // ★修正: 初回はDOM変更直後でレイアウトが未確定な場合があるため、
-    // レイアウト確定後(次の描画フレーム後)にもう一度計算し直す
+    // レイアウト確定後（次の描画フレーム後）にもう一度計算し直す
     requestAnimationFrame(function () {
       requestAnimationFrame(fitPanelToWindow);
     });
@@ -901,7 +929,7 @@ if (PANEL_MODE) {
     window.addEventListener('orientationchange', fitPanelToWindow);
 
     // ★追加【d=0時の崩れ対策】: 実機モード(obniz.js)が接続中にDOMへ
-    // 独自の要素(接続状態表示等)を追加し、それによってbodyのflexレイアウトが
+    // 独自の要素（接続状態表示等）を追加し、それによってbodyのflexレイアウトが
     // 圧迫されパネルが小さくなる現象への対策。bodyの子要素の増減を監視し、
     // 変化があるたびにパネルサイズを再計算する。
     const bodyObserver = new MutationObserver(function () {
@@ -929,7 +957,7 @@ if (PANEL_MODE) {
     panelEl.insertBefore(bploadingEl, panelEl.firstChild);
   }
 
-  // DISP(「たかさ...OK!」表示)を情報パネルの中へ移動
+  // DISP（「たかさ...OK!」表示）を情報パネルの中へ移動
   const infoPanel = document.getElementById('infoPanel');
   const dispDom = document.getElementById('obniz_label_' + DISP.no);
   if (infoPanel && dispDom) {
@@ -940,11 +968,11 @@ if (PANEL_MODE) {
   }
 
   // ★変更: △パネル表示時は、パネルに含まれない予備ボタン
-  // (いちばんうえ／たくさん／まんなか等)も非表示にする。
+  // （いちばんうえ／たくさん／まんなか等）も非表示にする。
   // 判定基準は DEMO_MODE ではなく PANEL_MODE
-  // (デモは全表示パターン共通のモードとして適用したため、
-  //   「パネルにない予備ボタンを隠す」のはパネル表示固有の話として分離)。
-  // 標準UI(p=0)の時は実機・デモ問わずすべて表示する。
+  // （デモは全表示パターン共通のモードとして適用したため、
+  //   「パネルにない予備ボタンを隠す」のはパネル表示固有の話として分離）。
+  // 標準UI（p=0）の時は実機・デモ問わずすべて表示する。
   [H100, UU, DD, LL, RR, H0, H50].forEach(function (btn) {
     const el = document.getElementById('obniz_button_' + btn.no);
     if (el) el.style.display = 'none';
@@ -1036,7 +1064,7 @@ obniz.onconnect = async function () {
       const high = (address >> 8) & 0xFF;
       const low = address & 0xFF;
       await obniz.i2c0.write(EEPROM_ADDR, [high, low, value]);
-      await delay(500); // 書き込み完了待ち(必要に応じて調整)
+      await delay(500); // 書き込み完了待ち（必要に応じて調整）
     }
 
     async function readEEPROM(address) {
@@ -1074,9 +1102,9 @@ obniz.onconnect = async function () {
     }
 
 // ========================================
-// ★追加: 表示フォーマットの出し分け(パネルUI = 複数行/標準UI = 従来の1行)
+// ★追加: 表示フォーマットの出し分け（パネルUI = 複数行/標準UI = 従来の1行）
 // パネルUIでは色ボールを△パネル側に常時表示しているため、
-// DISPのテキスト側にはCOLORを含めない(二重表示防止)。
+// DISPのテキスト側にはCOLORを含めない（二重表示防止）。
 // ========================================
     function fmtIdle() {
       if (PANEL_MODE) {
@@ -1190,7 +1218,7 @@ async function moveHeight(delta, isBig, playFreq) {
   if (LOC_No >= 100) LOC_No = 100;
   if (LOC_No <= 0) LOC_No = 0;
 
-  // ロック解除(既存仕様維持)
+  // ロック解除（既存仕様維持）
   await motor1.holdWait();
   motor1.speed(100);
   await motor1.stepWait(10);
@@ -1199,7 +1227,7 @@ async function moveHeight(delta, isBig, playFreq) {
 
   DISP.setText(fmtHeightMoving(LOC_No_N, LOC_No));
 
-  // スピード(小/大)
+  // スピード（小/大）
   motor1.speed(isBig ? 200 : 100);
 
   // 方向判定
@@ -1285,7 +1313,7 @@ async function moveLR(delta, speedValue, playFreq) {
   // 現在値更新
   LR_No = LR_No_N + delta;
 
-  // 限界処理(ここで止める)
+  // 限界処理（ここで止める）
   let isLimit = false;
 
   if (LR_No >= 100) {
@@ -1310,7 +1338,7 @@ async function moveLR(delta, speedValue, playFreq) {
   await motor2.stepWait(STEP);
 
   // ★追加: デモモードは、移動中の表示をユーザーが確認できるよう
-  // 途中に500msのディレイを入れる(実機はモーター動作時間がこれに相当するため不要)
+  // 途中に500msのディレイを入れる（実機はモーター動作時間がこれに相当するため不要）
   if (DEMO_MODE) {
     await ObnizUI.Util.wait(500);
   }
@@ -1339,7 +1367,7 @@ async function moveLR(delta, speedValue, playFreq) {
     const motor1 = obniz.wired("StepperMotor", {a:3, aa:4, b:6, bb:5});
     motor1.stepType('1');
     motor1.speed(50);
-    // ★修正【複数同時接続対策】: 接続直後の freeWait()(保持力解放)を削除。
+    // ★修正【複数同時接続対策】: 接続直後の freeWait()（保持力解放）を削除。
     // 他セッションが動作中に、この接続の初期化が割り込んで
     // ステップがずれる不具合の原因だったため。
     // await motor1.freeWait();
@@ -1350,7 +1378,7 @@ async function moveLR(delta, speedValue, playFreq) {
     // ★修正【複数同時接続対策】: 同上の理由で削除。
     // await motor2.freeWait();
 
-    // ★修正【複数同時接続対策】: 接続直後の io11.output(false)(ロック解除)を削除。
+    // ★修正【複数同時接続対策】: 接続直後の io11.output(false)（ロック解除）を削除。
     // ロックは「モーターがフリー(無励磁)の時の位置ずれ防止用」なので、
     // ロックがかかったままでも実害はない。動作中の他セッションのロックを
     // 横から解除してしまう方が問題のため、接続時には触らない。
@@ -1365,9 +1393,17 @@ async function moveLR(delta, speedValue, playFreq) {
       COLOR = '🔵';
       RAMP = ''
     }
-    // ★追加: △パネルの色ボール表示にも反映
-    const colorBallEl = document.getElementById('colorBall');
-    if (colorBallEl) colorBallEl.textContent = COLOR;
+    // ★変更: センターの色ボール表示は廃止。代わりに、タイトルエリアの
+    // 背景色(--ramp-color)をランプカラーに合わせて設定し、
+    // なげるボタンのアイコンも🔴🔵にする。
+    if (PANEL_MODE) {
+      const panelEl0 = document.querySelector('.panel');
+      if (panelEl0) {
+        panelEl0.style.setProperty('--ramp-color', RN === 1 ? '#cc2b2b' : '#1f5c9e');
+      }
+      const throwBallIconEl = document.getElementById('throwBallIcon');
+      if (throwBallIconEl) throwBallIconEl.textContent = COLOR;
+    }
 
   STEP = 0;
   LR_No = 0;
@@ -1402,7 +1438,7 @@ async function moveLR(delta, speedValue, playFreq) {
   DISP.setText(fmtIdle());
 
   while (LOOP_ACTIVE) {
-    // ★【修正箇所】複数ブラウザ遅延対策：ループ冒頭の高速画面更新(wait 20ms と DISP.setText)を削除。
+    // ★【修正箇所】複数ブラウザ遅延対策：ループ冒頭の高速画面更新（wait 20ms と DISP.setText）を削除。
     // 操作していない待機時は、裏で無駄なパケットを飛ばさず静かに待つようにします。
 
 //-[PowerON]----------------------------------------------------------------------------------
@@ -1422,34 +1458,55 @@ async function moveLR(delta, speedValue, playFreq) {
         DISP.setText(' ');
         obniz.display.clear();
         obniz.display.print(btn_PIT)
-        DISP.setText(PANEL_MODE ? btn_PIT : [COLOR,COLOR,btn_PIT,COLOR,COLOR].join(''));
+        // ★修正: センターの「なげる」表示は削除。「！なげます！」の表示のみ残す。
         servomotor.angle(1);
         await ObnizUI.Util.wait(1000);
         if (PANEL_MODE) {
           const infoPanelEl = document.getElementById('infoPanel');
           if (infoPanelEl) infoPanelEl.classList.add('pit-anim');
         }
-        DISP.setText((['　',COLOR,'　　　　　　　　　◯'].join('')));
+        // ★修正: ○も2倍サイズに、移動幅(leading/trailing)を2倍に拡大。
+        // 空行(<br>)を2つ入れることで、たかさ表示位置の2行下へ表示位置をずらす。
+        // ★修正【幅が広がるデグレード対策】: 開始位置(1フレーム目)を含む全フレームで
+        // 左側を1単位減らし、その分を右端(◯の後ろ)の余白として追加する。
+        // これにより「合計の文字数(=幅計算の基準値24)」は変えずに、
+        // 開始位置だけをボール1つ分左へ寄せられる。
+        function setDispBallFrame(leading, trailing) {
+          const dispEl = document.getElementById('obniz_label_' + DISP.no);
+          if (dispEl) {
+            dispEl.innerHTML = '<br><br>' + leading +
+              '<span class="pit-ball">' + COLOR + '</span>' +
+              trailing + '<span class="pit-ball">◯</span>' + '　';
+          } else {
+            DISP.setText([leading, COLOR, trailing + '◯'].join(''));
+          }
+        }
+        setDispBallFrame('　', '　　　　　　　　　　　　　　　　　　');
         await _ai.playAudio(350,1 * 30);
         await ObnizUI.Util.wait(300);
-        DISP.setText((['　　　',COLOR,'　　　　　　　◯'].join('')));
+        setDispBallFrame('　　　　　', '　　　　　　　　　　　　　　');
         await _ai.playAudio(350,1 * 30);
         await ObnizUI.Util.wait(300);
-        DISP.setText((['　　　　　',COLOR,'　　　　　◯'].join('')));
+        setDispBallFrame('　　　　　　　　　', '　　　　　　　　　　');
         await _ai.playAudio(350,1 * 30);
         await ObnizUI.Util.wait(300);
-        DISP.setText((['　　　　　　　　',COLOR,'　　◯'].join('')));
+        setDispBallFrame('　　　　　　　　　　　　　　　', '　　　　');
         await _ai.playAudio(350,1 * 30);
         await ObnizUI.Util.wait(300);
-        DISP.setText((['　　　　　　　　　　',COLOR,'◯'].join('')));
+        setDispBallFrame('　　　　　　　　　　　　　　　　　　　', '');
         await ObnizUI.Util.wait(680);
+        servomotor.angle(135);
+        await _ai.playAudio(390,1 * 100);
+
+        // ★修正【一瞬だけ広がるデグレード対策】: pit-animクラスの解除を
+        // pos_set()の直前（テキストが短くなる直前）まで遅らせる。
+        // 以前はservomotor.angle()やplayAudio()の待機中(約100ms)、
+        // 「まだ長いアニメーション文字列」のまま「通常フォントサイズ」に
+        // 戻ってしまい、その間だけ枠が広がって見えていた。
         if (PANEL_MODE) {
           const infoPanelEl2 = document.getElementById('infoPanel');
           if (infoPanelEl2) infoPanelEl2.classList.remove('pit-anim');
         }
-        servomotor.angle(135);
-        await _ai.playAudio(390,1 * 100);
-
         await pos_set();
         await CF();
 
