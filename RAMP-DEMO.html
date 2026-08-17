@@ -1239,6 +1239,14 @@ async function moveHeight(delta, isBig, playFreq) {
 
   await motor1.stepWait(STEP + 10);
 
+  // ★追加: デモモードは、実機のモーター動作時間を実測して反映することを
+  // 検討したが断念し、代わりに移動中の表示をユーザーが確認できるよう
+  // 一律で2000msのディレイを入れる（p=0/p=1共通。実機はモーター動作時間が
+  // これに相当するため不要）。moveLR()の同様のディレイと対応。
+  if (DEMO_MODE) {
+    await ObnizUI.Util.wait(2000);
+  }
+
   obniz.io11.output(false);
   await motor1.freeWait();
 
@@ -1288,6 +1296,12 @@ async function setHeightPreset(target, label, voice) {
   }
 
   await motor1.stepWait(STEP);
+
+  // ★追加: 上と同様、デモモードは移動中の表示確認用に2000msのディレイを
+  // 入れる（いちばんうえ／いちばんした／まんなか、p=0/p=1共通）。
+  if (DEMO_MODE) {
+    await ObnizUI.Util.wait(2000);
+  }
 
   obniz.io11.output(false);
   await motor1.freeWait();
