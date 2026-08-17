@@ -384,6 +384,28 @@
         width:100%;
         height:100%;
       }
+      /* ============================================================
+         ★PoC追加: p=0(標準UI)でイラストを表示するための横並び行。
+         本物のBootstrap/obniz-parts-kitsが生成する#OBNIZ_OUTPUTの
+         内部構造には一切手を入れず、その外側を横並びコンテナで
+         包むだけにする(JS側でDOM移動して実現。main()参照)。
+         #OBNIZ_OUTPUTはp=1のようなaspect-ratio制約が無いため、
+         イラスト側は固定幅で確保し、#OBNIZ_OUTPUT側を残り幅いっぱいに使う。
+         ============================================================ */
+      .standard-illust-row{
+        display:flex;
+        flex-direction:row;
+        align-items:flex-start;
+        gap:2vw;
+      }
+      .standard-illust-row #OBNIZ_OUTPUT{
+        flex:1 1 0;
+        min-width:0;
+      }
+      .standard-illust-row .illust-stage{
+        flex:0 0 260px;
+        height:340px;
+      }
       /* ★PoC: ボールの上下移動アニメーション。moveHeight/setHeightPresetの
          DEMO_MODEディレイ(2000ms)と時間を合わせてある。 */
       #illustBallGroup{
@@ -532,8 +554,6 @@
 
     <!-- ============================================================
          ★追加: △パターン操作パネル（p=1 の時のみ表示。JSで表示/移動する）
-         ★PoC追加: パネルの横にロボットランプのイラスト表示エリアを追加
-         (content-rowで横並びにする)。ボール上下移動のみプロトタイプ実装。
          ============================================================ -->
     <div class="wrap" id="customPanelWrap" style="display:none;">
       <div class="content-row" id="contentRow">
@@ -577,25 +597,30 @@
 
       </div>
       </div>
-
-      <!-- ★PoC: ロボットランプのイラスト(線画SVG)。ボールの上下移動のみ実装。
-           左右移動・ボールリリースは今後の検証項目(docs/ramp-illustration-poc.md参照)。 -->
-      <div class="illust-stage" id="illustStage">
-        <svg viewBox="0 0 200 300" preserveAspectRatio="xMidYMid meet" aria-label="ロボットランプのイラスト">
-          <!-- 地面 -->
-          <line x1="20" y1="280" x2="180" y2="280" stroke="#1f5c73" stroke-width="4" stroke-linecap="round"/>
-          <!-- 本体の台座 -->
-          <rect x="70" y="262" width="60" height="20" rx="4" fill="#1f5c73"/>
-          <!-- 高さ方向の支柱(ボールが上下する軌道) -->
-          <line x1="100" y1="266" x2="100" y2="40" stroke="#1f5c73" stroke-width="6" stroke-linecap="round"/>
-          <!-- ボール本体(高さに応じてtranslateYで移動。JS: updateIllustHeight()) -->
-          <g id="illustBallGroup">
-            <circle cx="100" cy="262" r="16" fill="var(--ramp-color, #cc2b2b)" stroke="#111" stroke-width="2"/>
-          </g>
-        </svg>
       </div>
+    </div>
 
-      </div>
+    <!-- ============================================================
+         ★PoC: ロボットランプのイラスト(線画SVG)。ボールの上下移動のみ実装。
+         左右移動・ボールリリースは今後の検証項目(docs/ramp-illustration-poc.md参照)。
+         p=0/p=1どちらでも使う共有要素のため、どちらの構造にも属さない
+         中立な位置に置き、実際の表示先(p=1ならcontentRow、p=0なら
+         standard-illust-row)へはJSで移動する(モードの判定・DOM移動は
+         main()内で行う。DOM構造自体はここでは中立のまま)。
+         ============================================================ -->
+    <div class="illust-stage" id="illustStage" style="display:none;">
+      <svg viewBox="0 0 200 300" preserveAspectRatio="xMidYMid meet" aria-label="ロボットランプのイラスト">
+        <!-- 地面 -->
+        <line x1="20" y1="280" x2="180" y2="280" stroke="#1f5c73" stroke-width="4" stroke-linecap="round"/>
+        <!-- 本体の台座 -->
+        <rect x="70" y="262" width="60" height="20" rx="4" fill="#1f5c73"/>
+        <!-- 高さ方向の支柱(ボールが上下する軌道) -->
+        <line x1="100" y1="266" x2="100" y2="40" stroke="#1f5c73" stroke-width="6" stroke-linecap="round"/>
+        <!-- ボール本体(高さに応じてtranslateYで移動。JS: updateIllustHeight()) -->
+        <g id="illustBallGroup">
+          <circle cx="100" cy="262" r="16" fill="var(--ramp-color, #cc2b2b)" stroke="#111" stroke-width="2"/>
+        </g>
+      </svg>
     </div>
 
     <!-- ============================================================
@@ -952,6 +977,19 @@ if (PANEL_MODE) {
     }
   })();
 
+  // ★PoC: イラスト表示エリア(#illustStage)を contentRow の中、
+  // panelStageより前(左側)へ移動する。パネルとイラストの左右を
+  // 入れ替えたい場合は、この insertBefore の引数順を入れ替えるだけでよい。
+  (function () {
+    const contentRowEl = document.getElementById('contentRow');
+    const illustEl = document.getElementById('illustStage');
+    const panelStageEl = document.getElementById('panelStage');
+    if (contentRowEl && illustEl && panelStageEl) {
+      contentRowEl.insertBefore(illustEl, panelStageEl);
+      illustEl.style.display = 'flex';
+    }
+  })();
+
   // ========================================
   // ★変更: CSSのaspect-ratioだけでは横長ウィンドウ時に比率が崩れるため、
   // JSでwrapの実際の空きスペースを計算し、2:3を保ったまま最大限フィット
@@ -1052,6 +1090,26 @@ if (PANEL_MODE) {
     const el = document.getElementById('obniz_button_' + btn.no);
     if (el) el.style.display = 'none';
   });
+} else {
+  // ========================================
+  // ★PoC: p=0(標準UI)でもイラストを表示する。
+  // 本物のBootstrap/obniz-parts-kitsが生成する#OBNIZ_OUTPUTの中身には
+  // 一切手を入れず、その外側を横並びコンテナ(.standard-illust-row)で
+  // 包み、その左側にイラストを配置する(p=1のパネル/イラストの
+  // 並び順と統一)。
+  // ========================================
+  (function () {
+    const obnizOutputEl = document.getElementById('OBNIZ_OUTPUT');
+    const illustEl = document.getElementById('illustStage');
+    if (!obnizOutputEl || !illustEl) return;
+    const row = document.createElement('div');
+    row.className = 'standard-illust-row';
+    row.id = 'standardIllustRow';
+    obnizOutputEl.parentNode.insertBefore(row, obnizOutputEl);
+    row.appendChild(illustEl);   // イラストを左に
+    row.appendChild(obnizOutputEl); // #OBNIZ_OUTPUTを右に(中身は無改変)
+    illustEl.style.display = 'flex';
+  })();
 }
 
 // ========================================
@@ -1503,14 +1561,12 @@ async function moveLR(delta, speedValue, playFreq) {
     // ★変更: センターの色ボール表示は廃止。代わりに、タイトルエリアの
     // 背景色(--ramp-color)をランプカラーに合わせて設定し、
     // なげるボタンのアイコンも🔴🔵にする。
-    // ★PoC修正: --ramp-colorは.panelではなく共通の祖先(customPanelWrap)に
-    // 設定する。イラスト表示エリア(.illust-stage、.panelの兄弟要素)にも
-    // 同じ値をCSS変数の継承で反映させるため。
+    // ★PoC修正: --ramp-colorはp=0/p=1どちらのイラスト表示エリアにも
+    // 継承させたいため、documentElement(html要素)に設定する
+    // (customPanelWrapに設定すると、p=0側のイラスト(customPanelWrapの
+    // 外にいる)には継承されないため)。
+    document.documentElement.style.setProperty('--ramp-color', RN === 1 ? '#cc2b2b' : '#1f5c9e');
     if (PANEL_MODE) {
-      const panelWrapEl0 = document.getElementById('customPanelWrap');
-      if (panelWrapEl0) {
-        panelWrapEl0.style.setProperty('--ramp-color', RN === 1 ? '#cc2b2b' : '#1f5c9e');
-      }
       const throwBallIconEl = document.getElementById('throwBallIcon');
       if (throwBallIconEl) throwBallIconEl.textContent = COLOR;
     }
