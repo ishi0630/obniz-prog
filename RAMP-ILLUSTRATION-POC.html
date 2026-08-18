@@ -370,9 +370,17 @@
         flex:1 1 0;
         min-width:0;
       }
+      /* ★修正: p=0/p=1でイラストの見た目サイズがバラバラだった
+         (p=1はcontent-rowの高さいっぱいまでflexで伸びる一方、
+         p=0は高さ上限つきだったため)。隣に置かれる要素(panel-stage /
+         OBNIZ_OUTPUT)の可変サイズに引っ張られないよう、illust-stage
+         自体は伸縮させず(flex:0 0 auto)幅・高さを固定値で指定する。
+         これによりp=0/p=1どちらでも常に同じ見た目サイズになる。 */
       .illust-stage{
-        flex:1 1 0;
-        min-width:0;
+        flex:0 0 auto;
+        align-self:center;
+        width:min(38vw, 320px);
+        height:min(70vh, 480px);
         display:flex;
         align-items:center;
         justify-content:center;
@@ -394,11 +402,6 @@
       .standard-illust-row #OBNIZ_OUTPUT{
         flex:1 1 0;
         min-width:0;
-      }
-      .standard-illust-row .illust-stage{
-        flex:1 1 0;
-        min-width:0;
-        height:min(70vh, 500px);
       }
       /* たかさゲージのボール移動アニメーション。moveHeight/setHeightPresetの
          DEMO_MODEディレイ(2000ms)と時間を合わせてある。 */
