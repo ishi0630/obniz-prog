@@ -80,3 +80,4 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `p=0`用外部ライブラリのvendoring検討
 - `main`ブランチへのマージ（現状`claude/online-boccia-robot-lamp-grtof1`ブランチのみで運用中）
 - たかさ・方向のゲージ状イラスト表示は、`RAMP-ILLUSTRATION-POC.html`という別ファイルで開発していたが、`RAMP-DEMO.html`へ統合済み（ファイルは削除）。コードレビュー上は`d=0`実機モードでも(--ramp-colorの事前設定等)問題ないはずだが、**実機・実ネットワーク環境での動作確認は依然として未実施**（上記`d=0`確認タスクと同一）。詳細な経緯は`docs/ramp-illustration-poc.md`参照
+  - 既知の懸念点1つ：ボール/針のアニメーション時間（ボール2秒・針0.6秒）は`DEMO_MODE`の疑似ディレイ（2000ms/500ms）に合わせて調整した値であり、実際のモーター動作時間（`RS`・実機の速度特性に依存）とは一致しない可能性がある。実機ではDISPの確定タイミング（`CF()`）より先/後にボールの見た目のアニメーションが終わることがあり得るが、値自体は正しく反映されるため機能上の不具合ではない。実機確認時に見た目が気になれば、CSSの`transition`時間を実測値に合わせて調整すること
