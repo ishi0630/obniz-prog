@@ -755,6 +755,15 @@ function getParam(name, defaultValue) {
 
 const RN = Number(getParam("rn", 1));
 const RS = getParam("rs", "S");
+
+// ★修正: --ramp-color(イラストのボール/針・パネルタイトル背景等で使用)は、
+// 以前はobniz.onconnect内(実機が実際に接続した時だけ発火)で設定していたため、
+// d=0(実機モード)で実機が繋がっていない間は一度も実行されず、CSS側の
+// フォールバック色(赤)のままになってしまう不具合があった(rn=2でも赤く見える等)。
+// RNはURLパラメータからこの時点で判明済みのため、接続の成否によらず
+// 最初から正しい色にしておく。
+document.documentElement.style.setProperty('--ramp-color', RN === 1 ? '#cc2b2b' : '#1f5c9e');
+
 // ========================================
 // ★設計方針: 「モード軸」と「表示軸」は独立した別々の概念として扱う
 //
@@ -1633,11 +1642,13 @@ async function moveLR(delta, speedValue, playFreq) {
     // ★変更: センターの色ボール表示は廃止。代わりに、タイトルエリアの
     // 背景色(--ramp-color)をランプカラーに合わせて設定し、
     // なげるボタンのアイコンも🔴🔵にする。
-    // ★変更: --ramp-colorはdocument.documentElementに設定する。
-    // p=1(.panel)とp=0(standard-illust-row内)ではイラストのDOM上の
-    // 位置(親)が異なるため、共通の祖先であるrootに置くことで
-    // どちらのDOM構成でもイラスト側のvar(--ramp-color)に届くようにする。
-    document.documentElement.style.setProperty('--ramp-color', RN === 1 ? '#cc2b2b' : '#1f5c9e');
+    // ★修正: --ramp-colorの設定はここ(obniz.onconnect内)から、
+    // RN判明直後のトップレベル(main()冒頭付近)へ移動した。
+    // ここはobniz実機が実際に接続した時にしか実行されないため、
+    // d=0(実機モード)で実機が繋がっていない間は一度も実行されず、
+    // CSS側のフォールバック色(赤)のまま表示されてしまう不具合があった。
+    // RNはURLパラメータから接続を待たずに判明済みのため、
+    // 接続の成否によらず正しい色を最初から出せるようにした。
     if (PANEL_MODE) {
       const throwBallIconEl = document.getElementById('throwBallIcon');
       if (throwBallIconEl) throwBallIconEl.textContent = COLOR;
