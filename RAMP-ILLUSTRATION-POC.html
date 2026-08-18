@@ -343,12 +343,14 @@
         display:flex;
         flex-direction:column;
       }
+      /* ★修正: パネルは上下中央(align-items:center)に配置していたが、
+         画面の上寄りに置くよう変更(align-items:flex-start)。 */
       .panel-stage{
         flex:1 1 auto;
         min-height:0;
         display:flex;
         justify-content:center;
-        align-items:center;
+        align-items:flex-start;
         padding:1.5vh 1vw;
         box-sizing:border-box;
       }
@@ -430,9 +432,13 @@
         box-sizing:border-box;
       }
       .panel .row{ display:flex; gap:6px; min-height:0; }
-      .panel .row.top{ flex:1; }
+      /* ★修正: なげるボタンを下段(した▼の隣)から上段(うえ▲の隣)へ
+         移動したため、行の高さ比率(元は上段1:中段2.6:下段1.1)も
+         ボタン数に合わせて入れ替えた(2個並ぶ上段を1.1、1個だけの
+         下段を1に)。 */
+      .panel .row.top{ flex:1.1; }
       .panel .row.middle{ flex:2.6; }
-      .panel .row.bottom{ flex:1.1; }
+      .panel .row.bottom{ flex:1; }
 
       .panel-title{
         flex:0 0 auto;
@@ -467,7 +473,12 @@
       .panel .btn:hover{ background:var(--panel-hover); }
       .panel .btn:active{ transform: scale(0.96); background:#c9dee6; }
 
-      .panel .up{ width:100%; }
+      /* ★修正: なげるボタンが上段(うえ▲の隣)に来たため、うえボタンは
+         単独でwidth:100%ではなく、下段のした/なげると同じ比率
+         (1.23:1)でなげると横並びにする。下段はしただけになったが、
+         flex:1.23のままでも単独の子は自動的に行幅いっぱいに広がる
+         ため、下段側の指定は変更不要。 */
+      .panel .up{ flex:1.23; min-width:0; }
       .panel .left{ flex:1; min-width:0; }
       .panel .right{ flex:1; min-width:0; }
 
@@ -561,10 +572,16 @@
       <div class="panel-stage" id="panelStage">
       <div class="panel">
 
+        <!-- ★修正: なげるボタンを下段(した▼の隣)から上段(うえ▲の隣)へ移動 -->
         <div class="row top">
           <button class="btn up" id="btnUp">
             <span class="arrow arrow-up"></span>
             うえ
+          </button>
+
+          <button class="btn throw" id="btnThrow">
+            <span class="throw-ball-icon" id="throwBallIcon"></span>
+            なげる
           </button>
         </div>
 
@@ -588,11 +605,6 @@
           <button class="btn down" id="btnDown">
             <span class="arrow arrow-down"></span>
             した
-          </button>
-
-          <button class="btn throw" id="btnThrow">
-            <span class="throw-ball-icon" id="throwBallIcon"></span>
-            なげる
           </button>
         </div>
 
