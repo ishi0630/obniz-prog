@@ -1510,6 +1510,10 @@ async function moveHeight(delta, isBig, playFreq) {
   LOC_D = LOC_No_N - LOC_No;
 
   DISP.setText(fmtHeightMoving(LOC_No_N, LOC_No));
+  // ★追加: ボールの移動アニメーションは、CF()を待たずここで開始する。
+  // 「50 → 30」等の移動中表示をしている間にボールも一緒に動くようにする
+  // (以前はCF()呼び出し時=移動完了後にしか動いておらず、表示とズレていた)。
+  updateIllustHeight(LOC_No);
 
   // スピード（小/大）
   motor1.speed(isBig ? 200 : 100);
@@ -1562,6 +1566,9 @@ async function setHeightPreset(target, label, voice) {
   LOC_No = target;
 
   DISP.setText(fmtHeightMoving(LOC_No_N, LOC_No));
+  // ★追加: moveHeight()と同様、ボールの移動アニメーションはCF()を待たず
+  // ここ(「いちばんうえ/した/まんなか」の移動中表示と同時)で開始する。
+  updateIllustHeight(LOC_No);
 
   await motor1.holdWait();
   motor1.speed(200);
