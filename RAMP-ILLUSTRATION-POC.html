@@ -376,17 +376,23 @@
          OBNIZ_OUTPUT)の可変サイズに引っ張られないよう、illust-stage
          自体は伸縮させず(flex:0 0 auto)幅・高さを固定値で指定する。
          これによりp=0/p=1どちらでも常に同じ見た目サイズになる。 */
-      /* ★修正: SVGのviewBoxを幅160(20〜180)に詰めたことに合わせて、
-         箱側の幅も固定値(320px)ではなく、新しいviewBoxのアスペクト比
-         (160:300)からheightを基準に自動計算させる。これにより、
-         SVG側の余白を削っただけでなく、箱自体の左右の空きスペースも
-         連動して狭くなる。 */
+      /* ★修正: SVGのviewBoxを幅148(23〜171)にさらに詰めた上で、
+         幅を「高さ基準の自動計算のみ」(aspect-ratio+height)にしていたのを
+         やめた。理由: 画面(ウィンドウ)を狭めると、高さ(vh)は変わらない
+         のに幅(vw)だけ足りなくなるケースがあり、illust-stageが常に
+         高さ基準の幅を主張し続けてしまい、隣のpanel-stage(操作パネル)側の
+         幅を圧迫して、パネル内の固定pxサイズのボタン文字・矢印が
+         はみ出して重なり合う崩れが発生していた。
+         幅自体をmin()で「30vw」「高さ上限からの換算値」の小さい方に
+         クランプし、高さはaspect-ratioでその幅に追従させることで、
+         画面が狭い時はillust-stage自身も一緒に縮み、panel-stage側に
+         きちんとスペースを譲るようにした。 */
       .illust-stage{
         flex:0 0 auto;
         align-self:center;
-        height:min(70vh, 480px);
-        aspect-ratio: 160 / 300;
-        width:auto;
+        width: min(30vw, calc(70vh * 148 / 300), 236.8px);
+        aspect-ratio: 148 / 300;
+        height:auto;
         display:flex;
         align-items:center;
         justify-content:center;
@@ -617,10 +623,9 @@
          ============================================================ -->
     <div class="illust-stage" id="illustStage" style="display:none;">
       <!-- ★修正: 実際に描画される内容(高さゲージ・方向ゲージ)は
-           x=26.6〜167.3付近に収まっており、元のviewBox(0 0 200 300)だと
-           左右に大きな余白ができていた。左右の余白を狭めるため、
-           viewBoxをx=20〜180(幅160)に詰めた(高さ方向は変更しない)。 -->
-      <svg viewBox="20 0 160 300" preserveAspectRatio="xMidYMid meet" aria-label="たかさ・方向インジケーター">
+           x=26.6〜167.3付近に収まっている。左右の余白をさらに削るため、
+           viewBoxをx=23〜171(幅148)まで詰めた(高さ方向は変更しない)。 -->
+      <svg viewBox="23 0 148 300" preserveAspectRatio="xMidYMid meet" aria-label="たかさ・方向インジケーター">
 
         <!-- ▼たかさゲージ(上段) -->
         <!-- ★修正: 目盛り線は10刻みのまま維持しつつ、数字ラベルは20刻みのみ
