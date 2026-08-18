@@ -395,7 +395,7 @@
       .standard-illust-row{
         display:flex;
         flex-direction:row;
-        align-items:flex-start;
+        align-items:stretch; /* ★修正: p=1と同様、両側を半分ずつ・同じ高さに揃える */
         gap:2vw;
       }
       .standard-illust-row #OBNIZ_OUTPUT{
@@ -403,8 +403,10 @@
         min-width:0;
       }
       .standard-illust-row .illust-stage{
-        flex:0 0 260px;
-        height:340px;
+        flex:1 1 0; /* ★修正: 固定幅(260px)をやめ、#OBNIZ_OUTPUTと50:50の幅にする */
+        min-width:0;
+        min-height:340px; /* align-items:stretchで#OBNIZ_OUTPUT側の実高さに伸びるが、
+                              ボタン数が少ない場合の最低限の高さとして残す */
       }
       /* ★PoC: ボールの上下移動アニメーション。moveHeight/setHeightPresetの
          DEMO_MODEディレイ(2000ms)と時間を合わせてある。 */
