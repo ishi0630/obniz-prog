@@ -642,8 +642,17 @@
              埋め込み、flexboxで中央揃えする。position(x/y/width/height)は
              SVG座標で固定するため位置は正確、絵文字の見た目はメッセージの
              ボールと同一になる。文字内容はJS側
-             (illustHeightBallIconEl.textContent = COLOR)で設定。 -->
+             (illustHeightBallIconEl.textContent = COLOR)で設定。
+             ★再修正: それでもなお「ボールが透けて見える(背景の目盛り線が
+             透ける)」という報告があった。色つき絵文字グリフは、実際に
+             色が塗られている範囲がボックスいっぱいではなく、周囲に
+             余白(透明な部分)を持つ実装が多く、その余白部分から背景の
+             目盛り線が透けて見えていたと考えられる。対策として、絵文字の
+             真後ろに、ふちどり(stroke)なしの単色円を敷く。単色円には
+             ふちどりがないため、以前問題になった黒い輪郭線は発生せず、
+             絵文字からわずかにはみ出しても同系色で自然になじむ。 -->
         <g id="illustHeightBall">
+          <circle cx="90" cy="90" r="14" fill="var(--ramp-color, #cc2b2b)"/>
           <foreignObject x="74" y="74" width="32" height="32">
             <div id="illustHeightBallIcon" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:26px; line-height:1;"></div>
           </foreignObject>
