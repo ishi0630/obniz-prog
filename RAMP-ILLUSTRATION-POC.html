@@ -366,38 +366,21 @@
         gap:1vw;
         width:100%;
       }
+      /* ★方針転換: 固定pxサイズやvw/vh基準のサイズ調整を色々試したが、
+         最終的に「ランプサイズは全体(横に並ぶillust-stageとpanel-stage/
+         OBNIZ_OUTPUTの合計幅)の1/4」という単純な比率指定に統一した。
+         flex-growをillust側1・パネル/ボタン側3にすることで、
+         gapを除いた残り幅がちょうど1:3(=1/4:3/4)に分配される。
+         高さはaspect-ratio(148:300)でその幅から自動的に決まる。 */
       .content-row .panel-stage{
-        flex:1 1 0;
+        flex:3 1 0;
         min-width:0;
       }
-      /* ★修正: p=0/p=1でイラストの見た目サイズがバラバラだった
-         (p=1はcontent-rowの高さいっぱいまでflexで伸びる一方、
-         p=0は高さ上限つきだったため)。隣に置かれる要素(panel-stage /
-         OBNIZ_OUTPUT)の可変サイズに引っ張られないよう、illust-stage
-         自体は伸縮させず(flex:0 0 auto)幅・高さを固定値で指定する。
-         これによりp=0/p=1どちらでも常に同じ見た目サイズになる。 */
-      /* ★修正: SVGのviewBoxを幅148(23〜171)に詰めた。
-         ★方針転換: 一時期、画面(ウィンドウ)の横幅が狭い時にパネル側の
-         文字・矢印が折り返される問題への対策として、illust-stageの幅を
-         vw基準でも縮めてパネル側にスペースを譲る方式にしていたが、
-         「パネルサイズ優先ではなく、ランプアニメサイズは一定を保つ」
-         方針に変更。画面の横幅が狭くなった場合は、panel-stage側
-         (flex:1 1 0)が縮む・折り返すことで対応する
-         (パネル自体の折り返し崩れの解消は別途必要ならパネル側で対応)。
-         ★さらに修正: 高さをmin(55vh, 380px)にしていたところ、p=0と
-         p=1でイラストの見た目サイズが違って見えるとの報告があった。
-         p=1は.wrap(position:fixed)、p=0は通常の文書フロー、と
-         イラストの親要素の配置方式が異なるため、ブラウザ環境によっては
-         実際のvh(ビューポート高さ)の解釈にズレが生じる可能性がある
-         (モバイルブラウザのアドレスバー等でよくある100vh問題)。
-         vh依存をやめ、完全な固定px(380px)にすることで、p=0/p=1・
-         画面サイズによらずイラストが常に同じサイズになるようにした。 */
       .illust-stage{
-        flex:0 0 auto;
-        align-self:center;
-        height:380px;
+        flex:1 1 0;
+        min-width:0;
+        align-self:center; /* 高さがcontent-rowいっぱいにstretchされるのを防ぎ、aspect-ratio通りの高さにする */
         aspect-ratio: 148 / 300;
-        width:auto;
         display:flex;
         align-items:center;
         justify-content:center;
@@ -417,7 +400,7 @@
         gap:2vw;
       }
       .standard-illust-row #OBNIZ_OUTPUT{
-        flex:1 1 0;
+        flex:3 1 0;
         min-width:0;
       }
       /* たかさゲージのボール移動アニメーション。moveHeight/setHeightPresetの
