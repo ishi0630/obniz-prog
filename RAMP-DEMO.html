@@ -7,6 +7,9 @@
     本番の実機制御コードはobniz社リポジトリ(将来的にAzureへ移行予定)で
     別途管理しています。実IDへの置き換えは絶対に行わないでください。
 
+  操作パネルの横に、たかさ・方向を示すゲージ状イラストを表示する機能を
+  含みます（実装の経緯はdocs/ramp-illustration-poc.mdを参照）。
+
   起動時URLパラメータで、デモ・操作画面パターンを切り替えられます。
   詳細は本ファイル内「起動パラメータ一覧」コメントを参照してください。
 
@@ -330,15 +333,83 @@
         display:flex;
         flex-direction:column;
       }
+      /* ★修正: パネルは上下中央(align-items:center)に配置していたが、
+         画面の上寄りに置くよう変更(align-items:flex-start)。 */
       .panel-stage{
         flex:1 1 auto;
         min-height:0;
         display:flex;
         justify-content:center;
-        align-items:center;
+        align-items:flex-start;
         padding:1.5vh 1vw;
         box-sizing:border-box;
       }
+      /* ============================================================
+         ★PoC再設計3: 実機を模したイラストではなく、「たかさ」「方向」を
+         それぞれ独立したシンプルなゲージ表示にする(縦棒+ボール／半円分度器+バー)。
+         操作パネルの横に置くための行コンテナ(p=1: contentRow内、
+         p=0: standard-illust-row)は従来通り。
+         ============================================================ */
+      .content-row{
+        flex:1 1 auto;
+        min-height:0;
+        display:flex;
+        flex-direction:row;
+        gap:1vw;
+        width:100%;
+      }
+      /* ★方針転換: 固定pxサイズやvw/vh基準のサイズ調整を色々試したが、
+         最終的に「ランプサイズは全体(横に並ぶillust-stageとpanel-stage/
+         OBNIZ_OUTPUTの合計幅)の1/4」という単純な比率指定に統一した。
+         flex-growをillust側1・パネル/ボタン側3にすることで、
+         gapを除いた残り幅がちょうど1:3(=1/4:3/4)に分配される。
+         高さはaspect-ratio(148:300)でその幅から自動的に決まる。 */
+      .content-row .panel-stage{
+        flex:3 1 0;
+        min-width:0;
+      }
+      /* ★修正: パネル側をalign-items:flex-start(上寄せ)にしたが、
+         illust-stage側はalign-self:centerのままだったため、
+         画面幅を変えるとillust-stageの高さ(aspect-ratio経由で幅から
+         算出)が変わり、中央揃えの結果イラストの位置だけ上下にずれて
+         見える不具合があった。パネル側と同じflex-startに揃えることで、
+         画面幅によらず常に同じ上端位置から始まるようにした。 */
+      .illust-stage{
+        flex:1 1 0;
+        min-width:0;
+        align-self:flex-start;
+        aspect-ratio: 148 / 370;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:1.5vh 1vw;
+        box-sizing:border-box;
+      }
+      .illust-stage svg{
+        width:100%;
+        height:100%;
+      }
+      /* p=0(標準UI)用の横並び行。#OBNIZ_OUTPUTの内部構造には手を入れず、
+         外側を包むだけにする(JS側でDOM移動して実現。main()参照)。 */
+      .standard-illust-row{
+        display:flex;
+        flex-direction:row;
+        align-items:flex-start;
+        gap:2vw;
+      }
+      .standard-illust-row #OBNIZ_OUTPUT{
+        flex:3 1 0;
+        min-width:0;
+      }
+      /* たかさゲージのボール移動アニメーション。moveHeight/setHeightPresetの
+         DEMO_MODEディレイ(2000ms)と時間を合わせてある。 */
+      #illustHeightBall{
+        transition: transform 2s ease;
+      }
+      /* ★修正: 方向ゲージが楕円状になり、針の先端が角度に応じて長さも
+         変わる必要が出たため、CSSのtransform:rotateによる回転アニメーション
+         はやめ、JS(updateIllustLR())側でx2/y2を直接アニメーションする
+         方式に変更した。ここでのCSS指定は不要になったため削除。 */
       .demo-banner{
         background:#fff3cd;color:#7a5b00;border:1px solid #ffe08a;
         border-radius:4px;padding:6px 12px;margin:0 0 8px 0;font-size:13px;
@@ -357,9 +428,14 @@
         box-sizing:border-box;
       }
       .panel .row{ display:flex; gap:6px; min-height:0; }
-      .panel .row.top{ flex:1; }
+      /* ★修正: なげるボタンを下段(した▼の隣)から上段(うえ▲の隣)へ
+         移動したため、行の高さ比率(元は上段1:中段2.6:下段1.1)も
+         ボタン数に合わせて入れ替えた(2個並ぶ上段を1.1、1個だけの
+         下段を1に)。
+         ★追加: した▼の高さを1.5倍にするため、下段のflex値を1→1.5に。 */
+      .panel .row.top{ flex:1.1; }
       .panel .row.middle{ flex:2.6; }
-      .panel .row.bottom{ flex:1.1; }
+      .panel .row.bottom{ flex:1.5; }
 
       .panel-title{
         flex:0 0 auto;
@@ -394,7 +470,12 @@
       .panel .btn:hover{ background:var(--panel-hover); }
       .panel .btn:active{ transform: scale(0.96); background:#c9dee6; }
 
-      .panel .up{ width:100%; }
+      /* ★修正: なげるボタンが上段(うえ▲の隣)に来たため、うえボタンは
+         単独でwidth:100%ではなく、下段のした/なげると同じ比率
+         (1.23:1)でなげると横並びにする。下段はしただけになったが、
+         flex:1.23のままでも単独の子は自動的に行幅いっぱいに広がる
+         ため、下段側の指定は変更不要。 */
+      .panel .up{ flex:1.23; min-width:0; }
       .panel .left{ flex:1; min-width:0; }
       .panel .right{ flex:1; min-width:0; }
 
@@ -484,13 +565,20 @@
          ★追加: △パターン操作パネル（p=1 の時のみ表示。JSで表示/移動する）
          ============================================================ -->
     <div class="wrap" id="customPanelWrap" style="display:none;">
+      <div class="content-row" id="contentRow">
       <div class="panel-stage" id="panelStage">
       <div class="panel">
 
+        <!-- ★修正: なげるボタンを下段(した▼の隣)から上段(うえ▲の隣)へ移動 -->
         <div class="row top">
           <button class="btn up" id="btnUp">
             <span class="arrow arrow-up"></span>
             うえ
+          </button>
+
+          <button class="btn throw" id="btnThrow">
+            <span class="throw-ball-icon" id="throwBallIcon"></span>
+            なげる
           </button>
         </div>
 
@@ -515,15 +603,123 @@
             <span class="arrow arrow-down"></span>
             した
           </button>
-
-          <button class="btn throw" id="btnThrow">
-            <span class="throw-ball-icon" id="throwBallIcon"></span>
-            なげる
-          </button>
         </div>
 
       </div>
       </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         ★PoC再設計3: たかさ・方向をそれぞれ独立したゲージで表示する。
+         上段=たかさ(縦棒+ボール、0-100を10刻みで表示)
+         下段=方向(半円の分度器+バー、センター=0、左右Max=100)
+         p=0/p=1どちらでも使う共有要素のため、どちらの構造にも属さない
+         中立な位置に置き、実際の表示先(p=1ならcontentRow、p=0なら
+         standard-illust-row)へはJSで移動する(main()内で行う)。
+         ============================================================ -->
+    <div class="illust-stage" id="illustStage" style="display:none;">
+      <!-- ★修正: 実際に描画される内容(高さゲージ・方向ゲージ)は
+           x=26.6〜167.3付近に収まっている。左右の余白をさらに削るため、
+           viewBoxをx=23〜171(幅148)まで詰めた。
+           ★追加: たかさ・方向それぞれの絵の上に、パネルのメッセージと
+           同じ形式の値表示(移動後の値のみ、矢印表示は無し)を追加した。
+           そのスペース確保のため、たかさゲージ全体を+25、方向ゲージ全体を
+           +55(たかさの+25追従分+自分のラベル分+30)下へずらし、
+           viewBoxの高さも300→370に拡張した。 -->
+      <svg viewBox="23 0 148 370" preserveAspectRatio="xMidYMid meet" aria-label="たかさ・方向インジケーター">
+
+        <!-- ▼たかさゲージ(上段) -->
+        <!-- ★追加: 絵の上部に「たかさXX」を表示(移動後の値のみ)。
+             文字内容はJS側(updateIllustHeight()内)で設定。 -->
+        <text id="illustHeightValueLabel" x="90" y="20" font-size="17" font-weight="bold" fill="#1f5c73" font-family="sans-serif" text-anchor="middle"></text>
+        <!-- ★修正: 目盛り線(10刻み)と数字ラベル(20刻みのみ)は維持しつつ、
+             目盛り線を中央の棒からは切り離し、数字のすぐ左に移動した
+             (棒を貫通する飾りではなく、数字の一部として見えるように)。 -->
+        <line x1="90" y1="45" x2="90" y2="185" stroke="#1f5c73" stroke-width="4" stroke-linecap="round"/>
+        <g stroke="#1f5c73" stroke-width="2" font-size="11" fill="#1f5c73" font-family="sans-serif">
+          <line x1="106" y1="45" x2="114" y2="45"/><text x="116" y="49">100</text>
+          <line x1="106" y1="59" x2="114" y2="59"/>
+          <line x1="106" y1="73" x2="114" y2="73"/><text x="116" y="77">80</text>
+          <line x1="106" y1="87" x2="114" y2="87"/>
+          <line x1="106" y1="101" x2="114" y2="101"/><text x="116" y="105">60</text>
+          <line x1="106" y1="115" x2="114" y2="115"/>
+          <line x1="106" y1="129" x2="114" y2="129"/><text x="116" y="133">40</text>
+          <line x1="106" y1="143" x2="114" y2="143"/>
+          <line x1="106" y1="157" x2="114" y2="157"/><text x="116" y="161">20</text>
+          <line x1="106" y1="171" x2="114" y2="171"/>
+          <line x1="106" y1="185" x2="114" y2="185"/><text x="116" y="189">0</text>
+        </g>
+        <!-- ボール(高さに応じてtranslateYで移動。JS: updateIllustHeight()) -->
+        <!-- ★再修正: SVG<text>のdominant-baselineによる絵文字中央揃えは
+             環境差でズレる、単色円は味気ない/グラデーションは半透明で
+             目盛りが透けて見える、といった問題が続いたため、
+             発想を変更。DISPメッセージ内の「たかさ」の前に表示されている
+             ボール(これは普通のHTMLテキストとして絵文字を表示しており、
+             見た目に問題が出ていない実績がある)と全く同じ描画経路を
+             使うため、SVG<text>ではなく<foreignObject>でHTMLの<div>を
+             埋め込み、flexboxで中央揃えする。position(x/y/width/height)は
+             SVG座標で固定するため位置は正確、絵文字の見た目はメッセージの
+             ボールと同一になる。文字内容はJS側
+             (illustHeightBallIconEl.textContent = COLOR)で設定。
+             ★再修正: それでもなお「ボールが透けて見える(背景の目盛り線が
+             透ける)」という報告があった。色つき絵文字グリフは、実際に
+             色が塗られている範囲がボックスいっぱいではなく、周囲に
+             余白(透明な部分)を持つ実装が多く、その余白部分から背景の
+             目盛り線が透けて見えていたと考えられる。対策として、絵文字の
+             真後ろに、ふちどり(stroke)なしの単色円を敷く。単色円には
+             ふちどりがないため、以前問題になった黒い輪郭線は発生せず、
+             絵文字からわずかにはみ出しても同系色で自然になじむ。 -->
+        <g id="illustHeightBall">
+          <circle cx="90" cy="115" r="14" fill="var(--ramp-color, #cc2b2b)"/>
+          <foreignObject x="74" y="99" width="32" height="32">
+            <div id="illustHeightBallIcon" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:26px; line-height:1;"></div>
+          </foreignObject>
+        </g>
+
+        <!-- ▼方向ゲージ(下段) -->
+        <!-- ★追加: 絵の上部に「みぎXX/ひだりXX」を表示(移動後の値のみ)。
+             文字内容はJS側(updateIllustLR()内)で設定。 -->
+        <text id="illustDirectionValueLabel" x="100" y="228" font-size="17" font-weight="bold" fill="#1f5c73" font-family="sans-serif" text-anchor="middle"></text>
+        <!-- ★修正: 半円(真円の弧)だと横に広がりすぎるため、高さ(中心からの
+             縦方向の到達距離Ry=70、変更なし)はそのままに、幅(横方向の
+             到達距離)だけをRx=41に狭めた楕円状の配置に変更。
+             Rx=41は、狭める前の目盛り「40」の位置(x方向のオフセット)に
+             合わせた値。角度と値の対応(±90°=値100)はそのまま。
+             位置の計算式はJSのupdateIllustLR()内のneedleTipFor()と共通。 -->
+        <circle cx="100" cy="325" r="5" fill="#1f5c73"/>
+        <g fill="#1f5c73">
+          <circle cx="100.0" cy="255.0" r="3"/><!-- 0 -->
+          <circle cx="112.7" cy="258.4" r="3"/><!-- 20 -->
+          <circle cx="124.1" cy="268.4" r="3"/><!-- 40 -->
+          <circle cx="133.2" cy="283.9" r="3"/><!-- 60 -->
+          <circle cx="139.0" cy="303.4" r="3"/><!-- 80 -->
+          <circle cx="141.0" cy="325.0" r="3"/><!-- 100(みぎ) -->
+          <circle cx="87.3" cy="258.4" r="3"/><!-- -20 -->
+          <circle cx="75.9" cy="268.4" r="3"/><!-- -40 -->
+          <circle cx="66.8" cy="283.9" r="3"/><!-- -60 -->
+          <circle cx="61.0" cy="303.4" r="3"/><!-- -80 -->
+          <circle cx="59.0" cy="325.0" r="3"/><!-- -100(ひだり) -->
+        </g>
+        <!-- ★修正: 「100」ラベルを、真横(同じ高さ)の点(v=100/-100)に
+             揃えて配置。みぎ/ひだりのラベルもその真下に揃えて配置。 -->
+        <g font-size="12" fill="#1f5c73" font-family="sans-serif" text-anchor="middle">
+          <text x="100" y="248">0</text>
+          <text x="155" y="329">100</text>
+          <text x="155" y="353">みぎ</text>
+          <text x="45" y="329">100</text>
+          <text x="45" y="353">ひだり</text>
+        </g>
+        <!-- 針。楕円の縁(目盛りの点)に先端が触れるよう、回転(角度)だけでなく
+             長さも一緒に滑らかに変化させる。JS: updateIllustLR()が
+             requestAnimationFrameでx2/y2を直接アニメーションする
+             (CSSのtransform:rotateだと真円の軌跡になり、狭めた楕円の
+             目盛りに先端が届かなくなるため、CSSトランジションはやめた)。
+             初期値(x2/y2)は値0の位置(=(100,255))。 -->
+        <g id="illustDirectionNeedle">
+          <line id="illustDirectionNeedleLine" x1="100" y1="325" x2="100" y2="255" stroke="var(--ramp-color, #cc2b2b)" stroke-width="6" stroke-linecap="round"/>
+        </g>
+      </svg>
     </div>
 
     <!-- ============================================================
@@ -585,6 +781,15 @@ function getParam(name, defaultValue) {
 
 const RN = Number(getParam("rn", 1));
 const RS = getParam("rs", "S");
+
+// ★修正: --ramp-color(イラストのボール/針・パネルタイトル背景等で使用)は、
+// 以前はobniz.onconnect内(実機が実際に接続した時だけ発火)で設定していたため、
+// d=0(実機モード)で実機が繋がっていない間は一度も実行されず、CSS側の
+// フォールバック色(赤)のままになってしまう不具合があった(rn=2でも赤く見える等)。
+// RNはURLパラメータからこの時点で判明済みのため、接続の成否によらず
+// 最初から正しい色にしておく。
+document.documentElement.style.setProperty('--ramp-color', RN === 1 ? '#cc2b2b' : '#1f5c9e');
+
 // ========================================
 // ★設計方針: 「モード軸」と「表示軸」は独立した別々の概念として扱う
 //
@@ -871,7 +1076,8 @@ if (PANEL_MODE) {
   (function () {
     const wrapEl = document.getElementById('customPanelWrap');
     const bannerEl = document.getElementById('demoModeBanner');
-    const stageEl = document.getElementById('panelStage');
+    // ★変更: panelStageはcontentRowの子になったため、挿入基準もcontentRowにする
+    const stageEl = document.getElementById('contentRow');
     if (wrapEl && bannerEl && stageEl) {
       wrapEl.insertBefore(bannerEl, stageEl);
     }
@@ -978,6 +1184,35 @@ if (PANEL_MODE) {
     if (el) el.style.display = 'none';
   });
 }
+
+// ========================================
+// ★追加: イラスト表示(#illustStage)を操作パネルの隣に配置する。
+// PANEL_MODEの分岐だが、DEMO_MODEとは独立(2軸設計を踏襲)。
+// p=1: contentRow内、panelStageの手前に挿入。
+// p=0: OBNIZ_OUTPUTの内部構造には手を入れず、その手前に横並び行
+//      (standard-illust-row)を新設してイラストと標準UIを並べる。
+// ========================================
+(function () {
+  const illustEl = document.getElementById('illustStage');
+  if (!illustEl) return;
+  if (PANEL_MODE) {
+    const contentRowEl = document.getElementById('contentRow');
+    const panelStageEl = document.getElementById('panelStage');
+    if (contentRowEl && panelStageEl) {
+      contentRowEl.insertBefore(illustEl, panelStageEl);
+    }
+  } else {
+    const obnizOutputEl = document.getElementById('OBNIZ_OUTPUT');
+    if (obnizOutputEl && obnizOutputEl.parentNode) {
+      const rowEl = document.createElement('div');
+      rowEl.className = 'standard-illust-row';
+      obnizOutputEl.parentNode.insertBefore(rowEl, obnizOutputEl);
+      rowEl.appendChild(illustEl);
+      rowEl.appendChild(obnizOutputEl);
+    }
+  }
+  illustEl.style.display = 'flex';
+})();
 
 let ONCONNECT_LOCK = false;
 let LOOP_ACTIVE = false;
@@ -1135,10 +1370,109 @@ obniz.onconnect = async function () {
       }
     }
 
+// ========================================
+// ★追加: たかさ・方向イラスト(#illustStage)の更新。
+// PANEL_MODE/DEMO_MODEを問わず常に呼ぶ(実機モードでも値が変わるたびに
+// 追従表示する。実際に動くかどうかは実機接続時に別途確認が必要)。
+// ========================================
+    function updateIllustHeight(value) {
+      const ballEl = document.getElementById('illustHeightBall');
+      if (!ballEl) return;
+      const clamped = Math.max(0, Math.min(100, value));
+      // ボールはcy=115(value=50相当)で描画済み。0=y185/100=y45になるよう
+      // 140px幅で上下させる分のズレ量を、描画位置からの相対移動として与える。
+      const dy = 70 - (clamped / 100) * 140;
+      ballEl.style.transform = 'translateY(' + dy + 'px)';
+    }
+    // ★修正: 絵の上部の値表示(移動後の値のみ、矢印表示は無し)は、当初
+    // updateIllustHeight()の中で一緒に更新していたが、それだと「50→52」の
+    // 移動中表示をしている間に(ボールと同時に)先に「たかさ52」が
+    // 出てしまい、パネルのメッセージが実際に「52 OK!」へ切り替わる
+    // タイミングとズレて見える、との指摘があった。ボールの移動アニメーション
+    // (updateIllustHeight())と値表示の更新タイミングを分離し、値表示は
+    // CF()(=パネルのfmtIdle()が確定するのと同じタイミング)でのみ
+    // 更新するようにした。
+    function updateIllustHeightLabel(value) {
+      const heightLabelEl = document.getElementById('illustHeightValueLabel');
+      if (!heightLabelEl) return;
+      const clamped = Math.max(0, Math.min(100, value));
+      heightLabelEl.textContent = msg_H + clamped;
+    }
+    // ★追加: パネルのメッセージ(fmtIdle()等)と同じ形式(msg_L/msg_R + 絶対値)で、
+    // 方向の値表示テキストを組み立てる。check_LR()のLR_LR/LR_No_DSP算出と同じロジック。
+    function lrValueLabelText(value) {
+      const lr = value < 0 ? msg_L : (value > 0 ? msg_R : ' ');
+      return lr + Math.abs(value);
+    }
+    // ★修正: たかさと同様、方向の値表示もupdateIllustLR()(針のアニメーション)
+    // から切り離し、CF()のタイミングでのみ更新するようにした。
+    function updateIllustLRLabel(value) {
+      const directionLabelEl = document.getElementById('illustDirectionValueLabel');
+      if (!directionLabelEl) return;
+      const clamped = Math.max(-100, Math.min(100, value));
+      directionLabelEl.textContent = lrValueLabelText(clamped);
+    }
+    // ★追加: 方向ゲージの楕円(中心100,325・Rx=41・Ry=70)上の、
+    // 値(-100〜100、角度は±90°)に対応する座標を返す。
+    // 目盛りの点(SVG側に静的配置)と、針の先端(下のupdateIllustLR())の
+    // 両方で同じ計算式を使うことで、針の先端が必ず目盛り上を通るようにする。
+    const NEEDLE_RX = 41, NEEDLE_RY = 70, NEEDLE_CX = 100, NEEDLE_CY = 325;
+    function needleTipFor(value) {
+      const rad = (value / 100 * 90) * Math.PI / 180;
+      return {
+        x: NEEDLE_CX + NEEDLE_RX * Math.sin(rad),
+        y: NEEDLE_CY - NEEDLE_RY * Math.cos(rad),
+      };
+    }
+    let lrNeedleCurrentValue = null; // null=未初期化(初回は即座に反映しアニメーションしない)
+    let lrNeedleAnimFrame = null;
+    function updateIllustLR(value) {
+      const needleLineEl = document.getElementById('illustDirectionNeedleLine');
+      if (!needleLineEl) return;
+      const target = Math.max(-100, Math.min(100, value));
+      function setTip(v) {
+        const tip = needleTipFor(v);
+        needleLineEl.setAttribute('x2', tip.x.toFixed(2));
+        needleLineEl.setAttribute('y2', tip.y.toFixed(2));
+      }
+      if (lrNeedleCurrentValue === null) {
+        // 初回(ページ表示直後)はアニメーションさせず即座に反映
+        setTip(target);
+        lrNeedleCurrentValue = target;
+        return;
+      }
+      // ★変更: 楕円の縁は角度によって中心からの距離(=針の長さ)が変わるため、
+      // CSSのtransform:rotate(固定長のまま回転=真円の軌跡)ではなく、
+      // requestAnimationFrameで値を補間しながら先端(x2/y2)を毎フレーム
+      // 再計算する。moveLR()のDEMO_MODEディレイ(500ms)+待機時間の目安に
+      // 合わせてDURATIONは0.6secのまま維持。
+      const start = lrNeedleCurrentValue;
+      const DURATION = 600;
+      const startTime = performance.now();
+      if (lrNeedleAnimFrame) cancelAnimationFrame(lrNeedleAnimFrame);
+      function frame(now) {
+        const t = Math.min(1, (now - startTime) / DURATION);
+        const eased = 1 - Math.pow(1 - t, 2); // ease-out相当
+        setTip(start + (target - start) * eased);
+        if (t < 1) {
+          lrNeedleAnimFrame = requestAnimationFrame(frame);
+        } else {
+          lrNeedleAnimFrame = null;
+        }
+      }
+      lrNeedleCurrentValue = target;
+      lrNeedleAnimFrame = requestAnimationFrame(frame);
+    }
 
 // Position LOC/LR get EEPROM & set/DISP ------------------------------------------------------------------------
+    // ★修正: 他のfmt*系関数(fmtIdle/fmtHeightMoving等)はPANEL_MODEで
+    // COLORの絵文字を出し分けているのに対し、ここだけPANEL_MODEを見ずに
+    // 常にCOLORを付けていたため、パネルUI(p=1)でも移動のたびに一瞬
+    // 「🔴 WAIT!」のようにボール絵文字が中央メッセージに表示されてしまう
+    // 不具合があった(ボタン操作のたびにpos_set()が呼ばれるため)。
+    // 他の関数と同じ基準に揃え、PANEL_MODE時はCOLORを付けないようにした。
     async function pos_set() {
-        DISP.setText(String(COLOR) + msg_WT);
+        DISP.setText((PANEL_MODE ? '' : String(COLOR)) + msg_WT);
         LOC_No_N = await readEEPROM(ADDR_HEIGHT);   // READ LOC DATA
     }
 
@@ -1199,6 +1533,10 @@ obniz.onconnect = async function () {
        LL.isClicked();
        RR.isClicked();
        DISP.setText(fmtIdle());
+       updateIllustHeight(LOC_No_N);
+       updateIllustHeightLabel(LOC_No_N);
+       updateIllustLR(LR_No_N);
+       updateIllustLRLabel(LR_No_N);
     }
 
 // ========================================
@@ -1226,6 +1564,10 @@ async function moveHeight(delta, isBig, playFreq) {
   LOC_D = LOC_No_N - LOC_No;
 
   DISP.setText(fmtHeightMoving(LOC_No_N, LOC_No));
+  // ★追加: ボールの移動アニメーションは、CF()を待たずここで開始する。
+  // 「50 → 30」等の移動中表示をしている間にボールも一緒に動くようにする
+  // (以前はCF()呼び出し時=移動完了後にしか動いておらず、表示とズレていた)。
+  updateIllustHeight(LOC_No);
 
   // スピード（小/大）
   motor1.speed(isBig ? 200 : 100);
@@ -1278,6 +1620,9 @@ async function setHeightPreset(target, label, voice) {
   LOC_No = target;
 
   DISP.setText(fmtHeightMoving(LOC_No_N, LOC_No));
+  // ★追加: moveHeight()と同様、ボールの移動アニメーションはCF()を待たず
+  // ここ(「いちばんうえ/した/まんなか」の移動中表示と同時)で開始する。
+  updateIllustHeight(LOC_No);
 
   await motor1.holdWait();
   motor1.speed(200);
@@ -1410,14 +1755,22 @@ async function moveLR(delta, speedValue, playFreq) {
     // ★変更: センターの色ボール表示は廃止。代わりに、タイトルエリアの
     // 背景色(--ramp-color)をランプカラーに合わせて設定し、
     // なげるボタンのアイコンも🔴🔵にする。
+    // ★修正: --ramp-colorの設定はここ(obniz.onconnect内)から、
+    // RN判明直後のトップレベル(main()冒頭付近)へ移動した。
+    // ここはobniz実機が実際に接続した時にしか実行されないため、
+    // d=0(実機モード)で実機が繋がっていない間は一度も実行されず、
+    // CSS側のフォールバック色(赤)のまま表示されてしまう不具合があった。
+    // RNはURLパラメータから接続を待たずに判明済みのため、
+    // 接続の成否によらず正しい色を最初から出せるようにした。
     if (PANEL_MODE) {
-      const panelEl0 = document.querySelector('.panel');
-      if (panelEl0) {
-        panelEl0.style.setProperty('--ramp-color', RN === 1 ? '#cc2b2b' : '#1f5c9e');
-      }
       const throwBallIconEl = document.getElementById('throwBallIcon');
       if (throwBallIconEl) throwBallIconEl.textContent = COLOR;
     }
+    // ★追加: たかさゲージのボール(foreignObject内のdiv)も、DISPメッセージの
+    // ボールと同じ絵文字(🔴/🔵)にする。イラストはp=0/p=1どちらでも
+    // 表示するため、PANEL_MODEでは分岐しない。
+    const illustHeightBallIconEl = document.getElementById('illustHeightBallIcon');
+    if (illustHeightBallIconEl) illustHeightBallIconEl.textContent = COLOR;
 
   STEP = 0;
   LR_No = 0;
@@ -1450,6 +1803,10 @@ async function moveLR(delta, speedValue, playFreq) {
 
   // 初期位置表示をループ前に1度だけ確実に実行
   DISP.setText(fmtIdle());
+  updateIllustHeight(LOC_No_N);
+  updateIllustHeightLabel(LOC_No_N);
+  updateIllustLR(LR_No_N);
+  updateIllustLRLabel(LR_No_N);
 
   while (LOOP_ACTIVE) {
     // ★【修正箇所】複数ブラウザ遅延対策：ループ冒頭の高速画面更新（wait 20ms と DISP.setText）を削除。

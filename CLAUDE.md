@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 「オンラインボッチャ」（遠隔操作でボッチャのランプ＝ボール発射台を操作するWebアプリ）の**公開デモ用**リポジトリ。obniz（IoTマイコンボード）経由でステッピングモーター（高さ・左右位置）とサーボモーター（ボール投射）を制御する。
 
-本体は単一HTMLファイル **`RAMP-DEMO.html`** のみで完結する（ビルド工程なし、依存パッケージのインストールも不要）。
+本体は単一HTMLファイル **`RAMP-DEMO.html`** のみで完結する（ビルド工程なし、依存パッケージのインストールも不要）。操作パネルの横に、たかさ・方向を示すゲージ状イラスト（`#illustStage`）を表示する機能を含む（`p=0`/`p=1`両対応。実装の経緯は`docs/ramp-illustration-poc.md`を参照）。
 
 ## 動作確認・デプロイ
 
@@ -79,4 +79,4 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `RS`（ランプサイズ S/L）パラメータの`p=1`（△パネルUI）での動作検証
 - `p=0`用外部ライブラリのvendoring検討
 - `main`ブランチへのマージ（現状`claude/online-boccia-robot-lamp-grtof1`ブランチのみで運用中）
-- `RAMP-ILLUSTRATION-POC.html`（たかさ・方向のゲージ状イラスト表示。`RAMP-DEMO.html`を複製した別ファイルで開発）は、デモ向けに一旦フィックス済み（`d=1`確認済み、`d=0`実機モードは未検証）。次のステップはファイル名変更＋`d=0`動作の完成。詳細は`docs/ramp-illustration-poc.md`参照
+- たかさ・方向のゲージ状イラスト表示は、`RAMP-ILLUSTRATION-POC.html`という別ファイルで開発していたが、`RAMP-DEMO.html`へ統合済み（ファイルは削除）。コードレビュー上は`d=0`実機モードでも(--ramp-colorの事前設定等)問題ないはずだが、**実機・実ネットワーク環境での動作確認は依然として未実施**（上記`d=0`確認タスクと同一）。詳細な経緯は`docs/ramp-illustration-poc.md`参照
