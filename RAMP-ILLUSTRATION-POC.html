@@ -352,6 +352,66 @@
         padding:1.5vh 1vw;
         box-sizing:border-box;
       }
+      /* ============================================================
+         ★PoC再設計3: 実機を模したイラストではなく、「たかさ」「方向」を
+         それぞれ独立したシンプルなゲージ表示にする(縦棒+ボール／半円分度器+バー)。
+         操作パネルの横に置くための行コンテナ(p=1: contentRow内、
+         p=0: standard-illust-row)は従来通り。
+         ============================================================ */
+      .content-row{
+        flex:1 1 auto;
+        min-height:0;
+        display:flex;
+        flex-direction:row;
+        gap:1vw;
+        width:100%;
+      }
+      .content-row .panel-stage{
+        flex:1 1 0;
+        min-width:0;
+      }
+      .illust-stage{
+        flex:1 1 0;
+        min-width:0;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:1.5vh 1vw;
+        box-sizing:border-box;
+      }
+      .illust-stage svg{
+        width:100%;
+        height:100%;
+      }
+      /* p=0(標準UI)用の横並び行。#OBNIZ_OUTPUTの内部構造には手を入れず、
+         外側を包むだけにする(JS側でDOM移動して実現。main()参照)。 */
+      .standard-illust-row{
+        display:flex;
+        flex-direction:row;
+        align-items:flex-start;
+        gap:2vw;
+      }
+      .standard-illust-row #OBNIZ_OUTPUT{
+        flex:1 1 0;
+        min-width:0;
+      }
+      .standard-illust-row .illust-stage{
+        flex:1 1 0;
+        min-width:0;
+        height:min(70vh, 500px);
+      }
+      /* たかさゲージのボール移動アニメーション。moveHeight/setHeightPresetの
+         DEMO_MODEディレイ(2000ms)と時間を合わせてある。 */
+      #illustHeightBall{
+        transition: transform 2s ease;
+      }
+      /* 方向ゲージの針の回転アニメーション。moveLR()のDEMO_MODEディレイ
+         (500ms)+モーター/音声の待機時間の目安に合わせて0.6secにしてある。
+         回転の中心(半円の中心点)にtransform-originを指定する。 */
+      #illustDirectionNeedle{
+        transition: transform 0.6s ease;
+        transform-origin: 100px 270px;
+      }
       .demo-banner{
         background:#fff3cd;color:#7a5b00;border:1px solid #ffe08a;
         border-radius:4px;padding:6px 12px;margin:0 0 8px 0;font-size:13px;
@@ -497,6 +557,7 @@
          ★追加: △パターン操作パネル（p=1 の時のみ表示。JSで表示/移動する）
          ============================================================ -->
     <div class="wrap" id="customPanelWrap" style="display:none;">
+      <div class="content-row" id="contentRow">
       <div class="panel-stage" id="panelStage">
       <div class="panel">
 
@@ -537,6 +598,55 @@
 
       </div>
       </div>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         ★PoC再設計3: たかさ・方向をそれぞれ独立したゲージで表示する。
+         上段=たかさ(縦棒+ボール、0-100を10刻みで表示)
+         下段=方向(半円の分度器+バー、センター=0、左右Max=100)
+         p=0/p=1どちらでも使う共有要素のため、どちらの構造にも属さない
+         中立な位置に置き、実際の表示先(p=1ならcontentRow、p=0なら
+         standard-illust-row)へはJSで移動する(main()内で行う)。
+         ============================================================ -->
+    <div class="illust-stage" id="illustStage" style="display:none;">
+      <svg viewBox="0 0 200 300" preserveAspectRatio="xMidYMid meet" aria-label="たかさ・方向インジケーター">
+
+        <!-- ▼たかさゲージ(上段) -->
+        <line x1="90" y1="20" x2="90" y2="160" stroke="#1f5c73" stroke-width="4" stroke-linecap="round"/>
+        <g stroke="#1f5c73" stroke-width="2" font-size="11" fill="#1f5c73" font-family="sans-serif">
+          <line x1="84" y1="20" x2="96" y2="20"/><text x="102" y="24">100</text>
+          <line x1="84" y1="34" x2="96" y2="34"/><text x="102" y="38">90</text>
+          <line x1="84" y1="48" x2="96" y2="48"/><text x="102" y="52">80</text>
+          <line x1="84" y1="62" x2="96" y2="62"/><text x="102" y="66">70</text>
+          <line x1="84" y1="76" x2="96" y2="76"/><text x="102" y="80">60</text>
+          <line x1="84" y1="90" x2="96" y2="90"/><text x="102" y="94">50</text>
+          <line x1="84" y1="104" x2="96" y2="104"/><text x="102" y="108">40</text>
+          <line x1="84" y1="118" x2="96" y2="118"/><text x="102" y="122">30</text>
+          <line x1="84" y1="132" x2="96" y2="132"/><text x="102" y="136">20</text>
+          <line x1="84" y1="146" x2="96" y2="146"/><text x="102" y="150">10</text>
+          <line x1="84" y1="160" x2="96" y2="160"/><text x="102" y="164">0</text>
+        </g>
+        <!-- ボール(高さに応じてtranslateYで移動。JS: updateIllustHeight()) -->
+        <g id="illustHeightBall">
+          <circle cx="90" cy="90" r="12" fill="var(--ramp-color, #cc2b2b)" stroke="#111" stroke-width="2"/>
+        </g>
+
+        <!-- ▼方向ゲージ(下段) -->
+        <path d="M 30 270 A 70 70 0 0 1 170 270" stroke="#1f5c73" stroke-width="4" fill="none" stroke-linecap="round"/>
+        <circle cx="100" cy="270" r="5" fill="#1f5c73"/>
+        <g font-size="12" fill="#1f5c73" font-family="sans-serif" text-anchor="middle">
+          <text x="100" y="193">0</text>
+          <text x="172" y="255">100</text>
+          <text x="172" y="292">みぎ</text>
+          <text x="28" y="255">100</text>
+          <text x="28" y="292">ひだり</text>
+        </g>
+        <!-- 針(方向に応じてrotateで回転。JS: updateIllustLR()) -->
+        <g id="illustDirectionNeedle">
+          <line x1="100" y1="270" x2="100" y2="205" stroke="var(--ramp-color, #cc2b2b)" stroke-width="6" stroke-linecap="round"/>
+        </g>
+      </svg>
     </div>
 
     <!-- ============================================================
@@ -884,7 +994,8 @@ if (PANEL_MODE) {
   (function () {
     const wrapEl = document.getElementById('customPanelWrap');
     const bannerEl = document.getElementById('demoModeBanner');
-    const stageEl = document.getElementById('panelStage');
+    // ★変更: panelStageはcontentRowの子になったため、挿入基準もcontentRowにする
+    const stageEl = document.getElementById('contentRow');
     if (wrapEl && bannerEl && stageEl) {
       wrapEl.insertBefore(bannerEl, stageEl);
     }
@@ -991,6 +1102,35 @@ if (PANEL_MODE) {
     if (el) el.style.display = 'none';
   });
 }
+
+// ========================================
+// ★追加: イラスト表示(#illustStage)を操作パネルの隣に配置する。
+// PANEL_MODEの分岐だが、DEMO_MODEとは独立(2軸設計を踏襲)。
+// p=1: contentRow内、panelStageの手前に挿入。
+// p=0: OBNIZ_OUTPUTの内部構造には手を入れず、その手前に横並び行
+//      (standard-illust-row)を新設してイラストと標準UIを並べる。
+// ========================================
+(function () {
+  const illustEl = document.getElementById('illustStage');
+  if (!illustEl) return;
+  if (PANEL_MODE) {
+    const contentRowEl = document.getElementById('contentRow');
+    const panelStageEl = document.getElementById('panelStage');
+    if (contentRowEl && panelStageEl) {
+      contentRowEl.insertBefore(illustEl, panelStageEl);
+    }
+  } else {
+    const obnizOutputEl = document.getElementById('OBNIZ_OUTPUT');
+    if (obnizOutputEl && obnizOutputEl.parentNode) {
+      const rowEl = document.createElement('div');
+      rowEl.className = 'standard-illust-row';
+      obnizOutputEl.parentNode.insertBefore(rowEl, obnizOutputEl);
+      rowEl.appendChild(illustEl);
+      rowEl.appendChild(obnizOutputEl);
+    }
+  }
+  illustEl.style.display = 'flex';
+})();
 
 let ONCONNECT_LOCK = false;
 let LOOP_ACTIVE = false;
@@ -1148,6 +1288,27 @@ obniz.onconnect = async function () {
       }
     }
 
+// ========================================
+// ★追加: たかさ・方向イラスト(#illustStage)の更新。
+// PANEL_MODE/DEMO_MODEを問わず常に呼ぶ(実機モードでも値が変わるたびに
+// 追従表示する。実際に動くかどうかは実機接続時に別途確認が必要)。
+// ========================================
+    function updateIllustHeight(value) {
+      const ballEl = document.getElementById('illustHeightBall');
+      if (!ballEl) return;
+      const clamped = Math.max(0, Math.min(100, value));
+      // ボールはcy=90(value=50相当)で描画済み。0=y160/100=y20になるよう
+      // 140px幅で上下させる分のズレ量を、描画位置からの相対移動として与える。
+      const dy = 70 - (clamped / 100) * 140;
+      ballEl.style.transform = 'translateY(' + dy + 'px)';
+    }
+    function updateIllustLR(value) {
+      const needleEl = document.getElementById('illustDirectionNeedle');
+      if (!needleEl) return;
+      const clamped = Math.max(-100, Math.min(100, value));
+      // 針は中心(100,270)を基点に、まっすぐ上(0°)から左右各90°まで回転する。
+      needleEl.style.transform = 'rotate(' + (clamped / 100 * 90) + 'deg)';
+    }
 
 // Position LOC/LR get EEPROM & set/DISP ------------------------------------------------------------------------
     async function pos_set() {
@@ -1212,6 +1373,8 @@ obniz.onconnect = async function () {
        LL.isClicked();
        RR.isClicked();
        DISP.setText(fmtIdle());
+       updateIllustHeight(LOC_No_N);
+       updateIllustLR(LR_No_N);
     }
 
 // ========================================
@@ -1423,11 +1586,12 @@ async function moveLR(delta, speedValue, playFreq) {
     // ★変更: センターの色ボール表示は廃止。代わりに、タイトルエリアの
     // 背景色(--ramp-color)をランプカラーに合わせて設定し、
     // なげるボタンのアイコンも🔴🔵にする。
+    // ★変更: --ramp-colorはdocument.documentElementに設定する。
+    // p=1(.panel)とp=0(standard-illust-row内)ではイラストのDOM上の
+    // 位置(親)が異なるため、共通の祖先であるrootに置くことで
+    // どちらのDOM構成でもイラスト側のvar(--ramp-color)に届くようにする。
+    document.documentElement.style.setProperty('--ramp-color', RN === 1 ? '#cc2b2b' : '#1f5c9e');
     if (PANEL_MODE) {
-      const panelEl0 = document.querySelector('.panel');
-      if (panelEl0) {
-        panelEl0.style.setProperty('--ramp-color', RN === 1 ? '#cc2b2b' : '#1f5c9e');
-      }
       const throwBallIconEl = document.getElementById('throwBallIcon');
       if (throwBallIconEl) throwBallIconEl.textContent = COLOR;
     }
@@ -1463,6 +1627,8 @@ async function moveLR(delta, speedValue, playFreq) {
 
   // 初期位置表示をループ前に1度だけ確実に実行
   DISP.setText(fmtIdle());
+  updateIllustHeight(LOC_No_N);
+  updateIllustLR(LR_No_N);
 
   while (LOOP_ACTIVE) {
     // ★【修正箇所】複数ブラウザ遅延対策：ループ冒頭の高速画面更新（wait 20ms と DISP.setText）を削除。
