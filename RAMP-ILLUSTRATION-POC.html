@@ -352,87 +352,6 @@
         padding:1.5vh 1vw;
         box-sizing:border-box;
       }
-      /* ============================================================
-         ★PoC追加: 操作パネルの横にイラスト表示エリアを並べるための行コンテナ。
-         .wrap(縦方向: バナー→content-row)の中に、横方向(パネル|イラスト)を
-         もう1段追加する。panel-stageの幅はこのコンテナのflex配分で
-         自動的に決まるため、fitPanelToWindow()側の計算(stage.clientWidth
-         を読むだけ)は変更不要。
-         ============================================================ */
-      .content-row{
-        flex:1 1 auto;
-        min-height:0;
-        display:flex;
-        flex-direction:row;
-        gap:1vw;
-        width:100%;
-      }
-      .content-row .panel-stage{
-        flex:1 1 0;
-        min-width:0;
-      }
-      .illust-stage{
-        flex:1 1 0;
-        min-width:0;
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        padding:1.5vh 1vw;
-        box-sizing:border-box;
-        perspective: 600px; /* ★PoC追加: 左右(縦軸中心)の3D回転(rotateY)用の遠近感 */
-      }
-      .illust-stage svg{
-        width:100%;
-        height:100%;
-      }
-      /* ============================================================
-         ★PoC追加: p=0(標準UI)でイラストを表示するための横並び行。
-         本物のBootstrap/obniz-parts-kitsが生成する#OBNIZ_OUTPUTの
-         内部構造には一切手を入れず、その外側を横並びコンテナで
-         包むだけにする(JS側でDOM移動して実現。main()参照)。
-         #OBNIZ_OUTPUTはp=1のようなaspect-ratio制約が無いため、
-         イラスト側は固定幅で確保し、#OBNIZ_OUTPUT側を残り幅いっぱいに使う。
-         ============================================================ */
-      .standard-illust-row{
-        display:flex;
-        flex-direction:row;
-        align-items:flex-start; /* ★再修正: stretchをやめる(理由は下記illust-stage参照) */
-        gap:2vw;
-      }
-      .standard-illust-row #OBNIZ_OUTPUT{
-        flex:1 1 0;
-        min-width:0;
-      }
-      /* ★再修正: align-items:stretchで#OBNIZ_OUTPUT(ボタン6行分、実機モード等で
-         さらに増えることもある)の実高さまでイラスト側を引き伸ばしていたところ、
-         SVGのviewBox(200x300)に対して表示枠が非常に大きくなり、
-         preserveAspectRatio="xMidYMid meet"のスケール計算(枠に収まる最大倍率)が
-         数倍〜十数倍になってしまい、イラストが巨大化してはみ出していた。
-         イラストの高さはボタン列の長さに追従させず、上限つきの固定的な値に
-         する(幅は引き続き#OBNIZ_OUTPUTと50:50)。 */
-      .standard-illust-row .illust-stage{
-        flex:1 1 0;
-        min-width:0;
-        height:min(70vh, 500px);
-      }
-      /* ★PoC再設計: たかさ(傾斜角)アニメーション。ヒンジ(100,190)を中心に
-         シュート一式を2D回転させる。moveHeight/setHeightPresetのDEMO_MODE
-         ディレイ(2000ms)と時間を合わせてある。 */
-      #illustInclineGroup{
-        transition: transform 2s ease;
-        transform-origin: 100px 190px;
-      }
-      /* ★PoC再設計: 左右(縦軸中心)アニメーション。実機は水平移動ではなく、
-         スタンドの縦軸を中心とした回転運動のため、CSSの3D回転(rotateY)で
-         奥行き方向の回転(遠近感つき)として表現する。ヒンジ(100,190、
-         スタンドの縦軸上の点)を中心に回転させる。moveLR()のDEMO_MODE
-         ディレイ(500ms)+モーター/音声の待機時間の目安に合わせて
-         transition時間は0.6secにしてある。 */
-      #illustAzimuthGroup{
-        transition: transform 0.6s ease;
-        transform-origin: 100px 190px;
-        transform-style: preserve-3d;
-      }
       .demo-banner{
         background:#fff3cd;color:#7a5b00;border:1px solid #ffe08a;
         border-radius:4px;padding:6px 12px;margin:0 0 8px 0;font-size:13px;
@@ -578,7 +497,6 @@
          ★追加: △パターン操作パネル（p=1 の時のみ表示。JSで表示/移動する）
          ============================================================ -->
     <div class="wrap" id="customPanelWrap" style="display:none;">
-      <div class="content-row" id="contentRow">
       <div class="panel-stage" id="panelStage">
       <div class="panel">
 
@@ -619,47 +537,6 @@
 
       </div>
       </div>
-      </div>
-    </div>
-
-    <!-- ============================================================
-         ★PoC再設計: 実機の写真を参考に、シュート状のランプ+三脚スタンドの
-         線画イラストに変更。
-         - たかさ(傾斜角): ヒンジ(100,190)を中心に、シュート一式(illustInclineGroup)
-           が前後に傾く2D回転。height=100(いちばんうえ)で垂直に近く、
-           height=0(いちばんした)で水平に近い角度になる。JS: updateIllustHeight()
-         - 左右(縦軸中心の回転): スタンドの縦軸(100,190)を中心に、シュート一式
-           (illustAzimuthGroup、illustInclineGroupの親)がCSSの3D回転
-           (perspective+rotateY)で奥行き方向に回転する。JS: updateIllustLR()
-         地面・三脚・スタンドの縦軸自体は固定(回転・傾斜どちらにも追従しない)。
-         p=0/p=1どちらでも使う共有要素のため、どちらの構造にも属さない
-         中立な位置に置き、実際の表示先(p=1ならcontentRow、p=0なら
-         standard-illust-row)へはJSで移動する(main()内で行う)。
-         ============================================================ -->
-    <div class="illust-stage" id="illustStage" style="display:none;">
-      <svg viewBox="0 0 200 300" preserveAspectRatio="xMidYMid meet" aria-label="ロボットランプのイラスト">
-        <!-- 地面(固定) -->
-        <line x1="10" y1="280" x2="190" y2="280" stroke="#1f5c73" stroke-width="4" stroke-linecap="round"/>
-        <!-- 三脚の脚(固定、回転・傾斜どちらにも追従しない) -->
-        <path d="M 70 280 L 94 250 M 130 280 L 106 250 M 100 280 L 100 250"
-              stroke="#1f5c73" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-        <!-- スタンドの縦軸(固定)。この軸を中心に左右(3D回転)する -->
-        <line x1="100" y1="250" x2="100" y2="190" stroke="#1f5c73" stroke-width="6" stroke-linecap="round"/>
-        <!-- ヒンジ(傾斜の中心点の目印、固定) -->
-        <circle cx="100" cy="190" r="7" fill="#555" stroke="#222" stroke-width="1.5"/>
-
-        <!-- ★左右(縦軸中心の3D回転)。JS: updateIllustLR() -->
-        <g id="illustAzimuthGroup">
-          <!-- ★たかさ(ヒンジ中心の傾斜、2D回転)。JS: updateIllustHeight() -->
-          <g id="illustInclineGroup">
-            <!-- シュートのレール(左右2本、実機同様わずかに湾曲させている) -->
-            <path d="M 92 190 C 88 150, 92 70, 96 30" stroke="#cc2b2b" stroke-width="6" fill="none" stroke-linecap="round"/>
-            <path d="M 108 190 C 112 150, 108 70, 104 30" stroke="#cc2b2b" stroke-width="6" fill="none" stroke-linecap="round"/>
-            <!-- ボール(リリース側の近くにセットされている状態を表現) -->
-            <circle cx="100" cy="52" r="13" fill="var(--ramp-color, #cc2b2b)" stroke="#111" stroke-width="2"/>
-          </g>
-        </g>
-      </svg>
     </div>
 
     <!-- ============================================================
@@ -1007,25 +884,9 @@ if (PANEL_MODE) {
   (function () {
     const wrapEl = document.getElementById('customPanelWrap');
     const bannerEl = document.getElementById('demoModeBanner');
-    // ★PoC修正: panelStageがcontent-rowの中に入れ子になったため、
-    // wrapElの直接の子である contentRow を基準に挿入する
-    // (insertBeforeの参照ノードはwrapElの直接の子でなければならない)。
-    const stageEl = document.getElementById('contentRow');
+    const stageEl = document.getElementById('panelStage');
     if (wrapEl && bannerEl && stageEl) {
       wrapEl.insertBefore(bannerEl, stageEl);
-    }
-  })();
-
-  // ★PoC: イラスト表示エリア(#illustStage)を contentRow の中、
-  // panelStageより前(左側)へ移動する。パネルとイラストの左右を
-  // 入れ替えたい場合は、この insertBefore の引数順を入れ替えるだけでよい。
-  (function () {
-    const contentRowEl = document.getElementById('contentRow');
-    const illustEl = document.getElementById('illustStage');
-    const panelStageEl = document.getElementById('panelStage');
-    if (contentRowEl && illustEl && panelStageEl) {
-      contentRowEl.insertBefore(illustEl, panelStageEl);
-      illustEl.style.display = 'flex';
     }
   })();
 
@@ -1129,67 +990,6 @@ if (PANEL_MODE) {
     const el = document.getElementById('obniz_button_' + btn.no);
     if (el) el.style.display = 'none';
   });
-} else {
-  // ========================================
-  // ★PoC: p=0(標準UI)でもイラストを表示する。
-  // 本物のBootstrap/obniz-parts-kitsが生成する#OBNIZ_OUTPUTの中身には
-  // 一切手を入れず、その外側を横並びコンテナ(.standard-illust-row)で
-  // 包み、その左側にイラストを配置する(p=1のパネル/イラストの
-  // 並び順と統一)。
-  // ========================================
-  (function () {
-    const obnizOutputEl = document.getElementById('OBNIZ_OUTPUT');
-    const illustEl = document.getElementById('illustStage');
-    if (!obnizOutputEl || !illustEl) return;
-    const row = document.createElement('div');
-    row.className = 'standard-illust-row';
-    row.id = 'standardIllustRow';
-    obnizOutputEl.parentNode.insertBefore(row, obnizOutputEl);
-    row.appendChild(illustEl);   // イラストを左に
-    row.appendChild(obnizOutputEl); // #OBNIZ_OUTPUTを右に(中身は無改変)
-    illustEl.style.display = 'flex';
-  })();
-}
-
-// ========================================
-// ★PoC再設計: ロボットランプ イラスト表示 — たかさ(傾斜角)アニメーション
-// ========================================
-// 高さ(0-100)を、ヒンジ(100,190)を中心としたシュートの傾斜角に変換する。
-// 実機写真を踏まえ、height=100(いちばんうえ)でシュートがほぼ垂直(0°)、
-// height=0(いちばんした)でほぼ水平に近い角度(MAX_TILT_DEG)になるよう
-// マッピングしている(SVG側のシュートは「垂直に立った状態」を基準の
-// 描画姿勢としているため、傾ける量は (100-height) に比例する)。
-// 要素が見つからない場合は何もしない(本体側の状態機械には一切影響させない)。
-// CSS側の #illustInclineGroup{transition: transform 2s ease;} と対で、
-// moveHeight/setHeightPresetのDEMO_MODEディレイ(2000ms)に時間を合わせている。
-function updateIllustHeight(value) {
-  const g = document.getElementById('illustInclineGroup');
-  if (!g) return;
-  const clamped = Math.max(0, Math.min(100, value));
-  const MAX_TILT_DEG = 75; // height=0での、垂直姿勢からの傾き量(度)
-  const tiltDeg = (100 - clamped) / 100 * MAX_TILT_DEG;
-  g.style.transform = 'rotate(' + tiltDeg + 'deg)';
-}
-
-// ========================================
-// ★PoC再設計: ロボットランプ イラスト表示 — 左右(縦軸中心)回転アニメーション
-// ========================================
-// 左右位置(-100〜100、+が みぎ)を、スタンドの縦軸上のヒンジ(100,190)を
-// 中心とした3D回転(rotateY)角度に変換する。実機は水平移動ではなく縦軸を
-// 中心とした回転運動であり、正面(LR=0)を0°として、左右それぞれ最大値
-// (LR=±100)で85°まで回転する。真横から見た構図とは奥行き方向が直交する
-// ため、CSSのperspective(.illust-stage)+rotateYで奥行きの回転(遠近感つき)
-// として近似的に表現している。updateIllustHeight()と同様、要素が見つから
-// ない場合は何もしない。CSS側の #illustAzimuthGroup{transition: transform
-// 0.6s ease; transform-origin: 100px 190px; transform-style: preserve-3d;}
-// と対で、moveLR()のDEMO_MODEディレイ(500ms)+モーター/音声待機の目安に
-// 時間を合わせている。
-function updateIllustLR(value) {
-  const g = document.getElementById('illustAzimuthGroup');
-  if (!g) return;
-  const clamped = Math.max(-100, Math.min(100, value));
-  const ROT_RANGE_DEG = 85; // 左右-100→100の回転角度(度)。正面(0)=0°
-  g.style.transform = 'rotateY(' + (clamped / 100 * ROT_RANGE_DEG) + 'deg)';
 }
 
 let ONCONNECT_LOCK = false;
@@ -1439,7 +1239,6 @@ async function moveHeight(delta, isBig, playFreq) {
   LOC_D = LOC_No_N - LOC_No;
 
   DISP.setText(fmtHeightMoving(LOC_No_N, LOC_No));
-  updateIllustHeight(LOC_No); // ★PoC: イラストのボールも目標の高さへ移動開始
 
   // スピード（小/大）
   motor1.speed(isBig ? 200 : 100);
@@ -1492,7 +1291,6 @@ async function setHeightPreset(target, label, voice) {
   LOC_No = target;
 
   DISP.setText(fmtHeightMoving(LOC_No_N, LOC_No));
-  updateIllustHeight(LOC_No); // ★PoC: イラストのボールも目標の高さへ移動開始
 
   await motor1.holdWait();
   motor1.speed(200);
@@ -1558,7 +1356,6 @@ async function moveLR(delta, speedValue, playFreq) {
   check_LR();
 
   DISP.setText(fmtLRMoving(LR_N_LR, LR_No_N_DSP, LR_LR, LR_No_DSP, isLimit ? msg_LM : ''));
-  updateIllustLR(LR_No); // ★PoC: イラストのランプも目標の左右位置へ移動開始
 
   motor2.speed(speedValue);
 
@@ -1626,12 +1423,11 @@ async function moveLR(delta, speedValue, playFreq) {
     // ★変更: センターの色ボール表示は廃止。代わりに、タイトルエリアの
     // 背景色(--ramp-color)をランプカラーに合わせて設定し、
     // なげるボタンのアイコンも🔴🔵にする。
-    // ★PoC修正: --ramp-colorはp=0/p=1どちらのイラスト表示エリアにも
-    // 継承させたいため、documentElement(html要素)に設定する
-    // (customPanelWrapに設定すると、p=0側のイラスト(customPanelWrapの
-    // 外にいる)には継承されないため)。
-    document.documentElement.style.setProperty('--ramp-color', RN === 1 ? '#cc2b2b' : '#1f5c9e');
     if (PANEL_MODE) {
+      const panelEl0 = document.querySelector('.panel');
+      if (panelEl0) {
+        panelEl0.style.setProperty('--ramp-color', RN === 1 ? '#cc2b2b' : '#1f5c9e');
+      }
       const throwBallIconEl = document.getElementById('throwBallIcon');
       if (throwBallIconEl) throwBallIconEl.textContent = COLOR;
     }
@@ -1667,8 +1463,6 @@ async function moveLR(delta, speedValue, playFreq) {
 
   // 初期位置表示をループ前に1度だけ確実に実行
   DISP.setText(fmtIdle());
-  updateIllustHeight(LOC_No_N); // ★PoC: イラストのボールも起動時の高さに合わせる
-  updateIllustLR(LR_No_N); // ★PoC: イラストのランプも起動時の左右位置に合わせる
 
   while (LOOP_ACTIVE) {
     // ★【修正箇所】複数ブラウザ遅延対策：ループ冒頭の高速画面更新（wait 20ms と DISP.setText）を削除。
