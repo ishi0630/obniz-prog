@@ -79,3 +79,4 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `RS`（ランプサイズ S/L）パラメータの`p=1`（△パネルUI）での動作検証
 - `p=0`用外部ライブラリのvendoring検討
 - `main`ブランチへのマージ（現状`claude/online-boccia-robot-lamp-grtof1`ブランチのみで運用中）
+- `RAMP-ILLUSTRATION-POC.html`（たかさ・方向のゲージ状イラスト表示。`RAMP-DEMO.html`を複製した別ファイルで開発）は、デモ向けに一旦フィックス済み（`d=1`確認済み、`d=0`実機モードは未検証）。次のステップはファイル名変更＋`d=0`動作の完成。詳細は`docs/ramp-illustration-poc.md`参照
