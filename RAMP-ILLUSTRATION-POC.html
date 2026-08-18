@@ -408,13 +408,10 @@
       #illustHeightBall{
         transition: transform 2s ease;
       }
-      /* 方向ゲージの針の回転アニメーション。moveLR()のDEMO_MODEディレイ
-         (500ms)+モーター/音声の待機時間の目安に合わせて0.6secにしてある。
-         回転の中心(半円の中心点)にtransform-originを指定する。 */
-      #illustDirectionNeedle{
-        transition: transform 0.6s ease;
-        transform-origin: 100px 270px;
-      }
+      /* ★修正: 方向ゲージが楕円状になり、針の先端が角度に応じて長さも
+         変わる必要が出たため、CSSのtransform:rotateによる回転アニメーション
+         はやめ、JS(updateIllustLR())側でx2/y2を直接アニメーションする
+         方式に変更した。ここでのCSS指定は不要になったため削除。 */
       .demo-banner{
         background:#fff3cd;color:#7a5b00;border:1px solid #ffe08a;
         border-radius:4px;padding:6px 12px;margin:0 0 8px 0;font-size:13px;
@@ -662,36 +659,44 @@
         </g>
 
         <!-- ▼方向ゲージ(下段) -->
-        <!-- ★修正: 半円の弧(線)を廃止。目盛りも放射状の線から点(circle)に変更。
-             位置は元の弧(中心100,270・半径70)上の点のまま、値20刻み
-             (±18°刻み、updateIllustLR()と同じ角度対応)。 -->
+        <!-- ★修正: 半円(真円の弧)だと横に広がりすぎるため、高さ(中心からの
+             縦方向の到達距離Ry=70、変更なし)はそのままに、幅(横方向の
+             到達距離)だけをRx=41に狭めた楕円状の配置に変更。
+             Rx=41は、狭める前の目盛り「40」の位置(x方向のオフセット)に
+             合わせた値。角度と値の対応(±90°=値100)はそのまま。
+             位置の計算式はJSのupdateIllustLR()内のneedleTipFor()と共通。 -->
         <circle cx="100" cy="270" r="5" fill="#1f5c73"/>
         <g fill="#1f5c73">
           <circle cx="100.0" cy="200.0" r="3"/><!-- 0 -->
-          <circle cx="121.6" cy="203.4" r="3"/><!-- 20 -->
-          <circle cx="141.1" cy="213.4" r="3"/><!-- 40 -->
-          <circle cx="156.6" cy="228.9" r="3"/><!-- 60 -->
-          <circle cx="166.6" cy="248.4" r="3"/><!-- 80 -->
-          <circle cx="170.0" cy="270.0" r="3"/><!-- 100(みぎ) -->
-          <circle cx="78.4" cy="203.4" r="3"/><!-- -20 -->
-          <circle cx="58.9" cy="213.4" r="3"/><!-- -40 -->
-          <circle cx="43.4" cy="228.9" r="3"/><!-- -60 -->
-          <circle cx="33.4" cy="248.4" r="3"/><!-- -80 -->
-          <circle cx="30.0" cy="270.0" r="3"/><!-- -100(ひだり) -->
+          <circle cx="112.7" cy="203.4" r="3"/><!-- 20 -->
+          <circle cx="124.1" cy="213.4" r="3"/><!-- 40 -->
+          <circle cx="133.2" cy="228.9" r="3"/><!-- 60 -->
+          <circle cx="139.0" cy="248.4" r="3"/><!-- 80 -->
+          <circle cx="141.0" cy="270.0" r="3"/><!-- 100(みぎ) -->
+          <circle cx="87.3" cy="203.4" r="3"/><!-- -20 -->
+          <circle cx="75.9" cy="213.4" r="3"/><!-- -40 -->
+          <circle cx="66.8" cy="228.9" r="3"/><!-- -60 -->
+          <circle cx="61.0" cy="248.4" r="3"/><!-- -80 -->
+          <circle cx="59.0" cy="270.0" r="3"/><!-- -100(ひだり) -->
         </g>
-        <!-- ★修正: 「100」ラベルが半円の弧と重なっていたため、弧の両端(x=30/170)
-             よりさらに外側(x=16/184)へ位置をずらして重なりを解消。
+        <!-- ★修正: 幅を狭めたことに合わせ、「100」ラベルの位置も新しい
+             楕円の両端(x=59/141)のすぐ外側(x=45/155)へ詰めた。
              みぎ/ひだりのラベルもその真下に揃えて配置。 -->
         <g font-size="12" fill="#1f5c73" font-family="sans-serif" text-anchor="middle">
           <text x="100" y="193">0</text>
-          <text x="184" y="268">100</text>
-          <text x="184" y="292">みぎ</text>
-          <text x="16" y="268">100</text>
-          <text x="16" y="292">ひだり</text>
+          <text x="155" y="268">100</text>
+          <text x="155" y="292">みぎ</text>
+          <text x="45" y="268">100</text>
+          <text x="45" y="292">ひだり</text>
         </g>
-        <!-- 針(方向に応じてrotateで回転。JS: updateIllustLR()) -->
+        <!-- 針。楕円の縁(目盛りの点)に先端が触れるよう、回転(角度)だけでなく
+             長さも一緒に滑らかに変化させる。JS: updateIllustLR()が
+             requestAnimationFrameでx2/y2を直接アニメーションする
+             (CSSのtransform:rotateだと真円の軌跡になり、狭めた楕円の
+             目盛りに先端が届かなくなるため、CSSトランジションはやめた)。
+             初期値(x2/y2)は値0の位置(=(100,200))。 -->
         <g id="illustDirectionNeedle">
-          <line x1="100" y1="270" x2="100" y2="205" stroke="var(--ramp-color, #cc2b2b)" stroke-width="6" stroke-linecap="round"/>
+          <line id="illustDirectionNeedleLine" x1="100" y1="270" x2="100" y2="200" stroke="var(--ramp-color, #cc2b2b)" stroke-width="6" stroke-linecap="round"/>
         </g>
       </svg>
     </div>
@@ -1358,12 +1363,56 @@ obniz.onconnect = async function () {
       const dy = 70 - (clamped / 100) * 140;
       ballEl.style.transform = 'translateY(' + dy + 'px)';
     }
+    // ★追加: 方向ゲージの楕円(中心100,270・Rx=41・Ry=70)上の、
+    // 値(-100〜100、角度は±90°)に対応する座標を返す。
+    // 目盛りの点(SVG側に静的配置)と、針の先端(下のupdateIllustLR())の
+    // 両方で同じ計算式を使うことで、針の先端が必ず目盛り上を通るようにする。
+    const NEEDLE_RX = 41, NEEDLE_RY = 70, NEEDLE_CX = 100, NEEDLE_CY = 270;
+    function needleTipFor(value) {
+      const rad = (value / 100 * 90) * Math.PI / 180;
+      return {
+        x: NEEDLE_CX + NEEDLE_RX * Math.sin(rad),
+        y: NEEDLE_CY - NEEDLE_RY * Math.cos(rad),
+      };
+    }
+    let lrNeedleCurrentValue = null; // null=未初期化(初回は即座に反映しアニメーションしない)
+    let lrNeedleAnimFrame = null;
     function updateIllustLR(value) {
-      const needleEl = document.getElementById('illustDirectionNeedle');
-      if (!needleEl) return;
-      const clamped = Math.max(-100, Math.min(100, value));
-      // 針は中心(100,270)を基点に、まっすぐ上(0°)から左右各90°まで回転する。
-      needleEl.style.transform = 'rotate(' + (clamped / 100 * 90) + 'deg)';
+      const needleLineEl = document.getElementById('illustDirectionNeedleLine');
+      if (!needleLineEl) return;
+      const target = Math.max(-100, Math.min(100, value));
+      function setTip(v) {
+        const tip = needleTipFor(v);
+        needleLineEl.setAttribute('x2', tip.x.toFixed(2));
+        needleLineEl.setAttribute('y2', tip.y.toFixed(2));
+      }
+      if (lrNeedleCurrentValue === null) {
+        // 初回(ページ表示直後)はアニメーションさせず即座に反映
+        setTip(target);
+        lrNeedleCurrentValue = target;
+        return;
+      }
+      // ★変更: 楕円の縁は角度によって中心からの距離(=針の長さ)が変わるため、
+      // CSSのtransform:rotate(固定長のまま回転=真円の軌跡)ではなく、
+      // requestAnimationFrameで値を補間しながら先端(x2/y2)を毎フレーム
+      // 再計算する。moveLR()のDEMO_MODEディレイ(500ms)+待機時間の目安に
+      // 合わせてDURATIONは0.6secのまま維持。
+      const start = lrNeedleCurrentValue;
+      const DURATION = 600;
+      const startTime = performance.now();
+      if (lrNeedleAnimFrame) cancelAnimationFrame(lrNeedleAnimFrame);
+      function frame(now) {
+        const t = Math.min(1, (now - startTime) / DURATION);
+        const eased = 1 - Math.pow(1 - t, 2); // ease-out相当
+        setTip(start + (target - start) * eased);
+        if (t < 1) {
+          lrNeedleAnimFrame = requestAnimationFrame(frame);
+        } else {
+          lrNeedleAnimFrame = null;
+        }
+      }
+      lrNeedleCurrentValue = target;
+      lrNeedleAnimFrame = requestAnimationFrame(frame);
     }
 
 // Position LOC/LR get EEPROM & set/DISP ------------------------------------------------------------------------
