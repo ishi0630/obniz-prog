@@ -611,6 +611,15 @@
          ============================================================ -->
     <div class="illust-stage" id="illustStage" style="display:none;">
       <svg viewBox="0 0 200 300" preserveAspectRatio="xMidYMid meet" aria-label="たかさ・方向インジケーター">
+        <defs>
+          <!-- ★追加: 「なげる」ボール絵文字風の艶(ハイライト)を再現するグラデーション。
+               中心色はランプカラー(--ramp-color)に連動。 -->
+          <radialGradient id="ballGradient" cx="35%" cy="30%" r="70%">
+            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.9"/>
+            <stop offset="35%" stop-color="var(--ramp-color, #cc2b2b)" stop-opacity="0.85"/>
+            <stop offset="100%" stop-color="var(--ramp-color, #cc2b2b)"/>
+          </radialGradient>
+        </defs>
 
         <!-- ▼たかさゲージ(上段) -->
         <!-- ★修正: 目盛り線は10刻みのまま維持しつつ、数字ラベルは20刻みのみ
@@ -632,18 +641,16 @@
           <line x1="84" y1="160" x2="96" y2="160"/><text x="116" y="164">0</text>
         </g>
         <!-- ボール(高さに応じてtranslateYで移動。JS: updateIllustHeight()) -->
-        <!-- ★修正: 単色円だけだと味気ないため「なげる」演出のボール絵文字
-             (🔴/🔵、JS変数COLOR)を重ねて表示するよう変更。ただし絵文字の
-             文字を単独で置くと、絵文字フォント内の余白の取り方が環境
-             (OS/ブラウザ)によって違うため、dominant-baseline指定だけでは
-             目盛りとの位置がズレて見えることがある(実測は正しくても見た目
-             がズレる)。そのため位置の基準は下の<circle>(SVG座標のみで
-             決まり、環境差の影響を受けない)に持たせ、絵文字はその上に
-             重ねる装飾として使う。文字内容はJS側
-             (illustHeightBallIconEl.textContent = COLOR)で設定。 -->
+        <!-- ★再修正: 「なげる」の絵文字(🔴/🔵)をそのまま文字として置く方式は、
+             絵文字フォント内の余白の取り方がOS/ブラウザによって異なり、
+             目盛りとの位置がズレて見える上、下地の円との二重表示で
+             輪郭線が透けて見える問題があった。文字を使うのをやめ、
+             グラデーションで「なげる」の絵文字に近い、艶のある球の
+             見た目をSVG図形(円+radialGradient)のみで再現する。
+             文字(フォント)を一切使わないため、目盛りとの位置関係は
+             SVG座標だけで決まり、環境による見た目のズレが原理的に発生しない。 -->
         <g id="illustHeightBall">
-          <circle cx="90" cy="90" r="13" fill="var(--ramp-color, #cc2b2b)" stroke="#111" stroke-width="1.5"/>
-          <text id="illustHeightBallIcon" x="90" y="90" font-size="26" text-anchor="middle" dominant-baseline="central"></text>
+          <circle cx="90" cy="90" r="13" fill="url(#ballGradient)"/>
         </g>
 
         <!-- ▼方向ゲージ(下段) -->
@@ -1623,15 +1630,14 @@ async function moveLR(delta, speedValue, playFreq) {
     // p=1(.panel)とp=0(standard-illust-row内)ではイラストのDOM上の
     // 位置(親)が異なるため、共通の祖先であるrootに置くことで
     // どちらのDOM構成でもイラスト側のvar(--ramp-color)に届くようにする。
+    // ★変更: たかさゲージのボールはSVGグラデーション(#ballGradient)で
+    // 表現しており、--ramp-colorの変更だけで自動的に色が追従するため、
+    // 個別のJS設定は不要(絵文字テキスト方式をやめたため対応するJSも削除)。
     document.documentElement.style.setProperty('--ramp-color', RN === 1 ? '#cc2b2b' : '#1f5c9e');
     if (PANEL_MODE) {
       const throwBallIconEl = document.getElementById('throwBallIcon');
       if (throwBallIconEl) throwBallIconEl.textContent = COLOR;
     }
-    // ★追加: たかさゲージのボールも「なげる」と同じ絵文字(🔴/🔵)にする。
-    // イラストはp=0/p=1どちらでも表示するため、PANEL_MODEでは分岐しない。
-    const illustHeightBallIconEl = document.getElementById('illustHeightBallIcon');
-    if (illustHeightBallIconEl) illustHeightBallIconEl.textContent = COLOR;
 
   STEP = 0;
   LR_No = 0;
