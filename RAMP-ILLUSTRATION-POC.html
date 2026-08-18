@@ -632,10 +632,17 @@
           <line x1="84" y1="160" x2="96" y2="160"/><text x="116" y="164">0</text>
         </g>
         <!-- ボール(高さに応じてtranslateYで移動。JS: updateIllustHeight()) -->
-        <!-- ★修正: 単色の円ではなく、「なげる」演出で使っているボール絵文字
-             (🔴/🔵、JS変数COLOR)をそのまま表示するよう変更。
-             文字内容はJS側(illustHeightBallIconEl.textContent = COLOR)で設定。 -->
+        <!-- ★修正: 単色円だけだと味気ないため「なげる」演出のボール絵文字
+             (🔴/🔵、JS変数COLOR)を重ねて表示するよう変更。ただし絵文字の
+             文字を単独で置くと、絵文字フォント内の余白の取り方が環境
+             (OS/ブラウザ)によって違うため、dominant-baseline指定だけでは
+             目盛りとの位置がズレて見えることがある(実測は正しくても見た目
+             がズレる)。そのため位置の基準は下の<circle>(SVG座標のみで
+             決まり、環境差の影響を受けない)に持たせ、絵文字はその上に
+             重ねる装飾として使う。文字内容はJS側
+             (illustHeightBallIconEl.textContent = COLOR)で設定。 -->
         <g id="illustHeightBall">
+          <circle cx="90" cy="90" r="13" fill="var(--ramp-color, #cc2b2b)" stroke="#111" stroke-width="1.5"/>
           <text id="illustHeightBallIcon" x="90" y="90" font-size="26" text-anchor="middle" dominant-baseline="central"></text>
         </g>
 
