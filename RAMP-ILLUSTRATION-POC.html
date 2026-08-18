@@ -379,6 +379,7 @@
         justify-content:center;
         padding:1.5vh 1vw;
         box-sizing:border-box;
+        perspective: 600px; /* ★PoC追加: 左右(縦軸中心)の3D回転(rotateY)用の遠近感 */
       }
       .illust-stage svg{
         width:100%;
@@ -414,18 +415,23 @@
         min-width:0;
         height:min(70vh, 500px);
       }
-      /* ★PoC: ボールの上下移動アニメーション。moveHeight/setHeightPresetの
-         DEMO_MODEディレイ(2000ms)と時間を合わせてある。 */
-      #illustBallGroup{
+      /* ★PoC再設計: たかさ(傾斜角)アニメーション。ヒンジ(100,190)を中心に
+         シュート一式を2D回転させる。moveHeight/setHeightPresetのDEMO_MODE
+         ディレイ(2000ms)と時間を合わせてある。 */
+      #illustInclineGroup{
         transition: transform 2s ease;
+        transform-origin: 100px 190px;
       }
-      /* ★PoC修正: ランプの左右は水平移動ではなく回転運動。台座上部の固定点
-         (100,262、SVG viewBox座標系)を中心に回転させるため、transform-origin
-         をその座標に指定する。moveLR()のDEMO_MODEディレイ(500ms)+
-         モーター/音声の待機時間の目安に合わせてtransition時間は0.6secにしてある。 */
-      #illustLampGroup{
+      /* ★PoC再設計: 左右(縦軸中心)アニメーション。実機は水平移動ではなく、
+         スタンドの縦軸を中心とした回転運動のため、CSSの3D回転(rotateY)で
+         奥行き方向の回転(遠近感つき)として表現する。ヒンジ(100,190、
+         スタンドの縦軸上の点)を中心に回転させる。moveLR()のDEMO_MODE
+         ディレイ(500ms)+モーター/音声の待機時間の目安に合わせて
+         transition時間は0.6secにしてある。 */
+      #illustAzimuthGroup{
         transition: transform 0.6s ease;
-        transform-origin: 100px 262px;
+        transform-origin: 100px 190px;
+        transform-style: preserve-3d;
       }
       .demo-banner{
         background:#fff3cd;color:#7a5b00;border:1px solid #ffe08a;
@@ -617,28 +623,40 @@
     </div>
 
     <!-- ============================================================
-         ★PoC: ロボットランプのイラスト(線画SVG)。ボールの上下移動のみ実装。
-         左右移動・ボールリリースは今後の検証項目(docs/ramp-illustration-poc.md参照)。
+         ★PoC再設計: 実機の写真を参考に、シュート状のランプ+三脚スタンドの
+         線画イラストに変更。
+         - たかさ(傾斜角): ヒンジ(100,190)を中心に、シュート一式(illustInclineGroup)
+           が前後に傾く2D回転。height=100(いちばんうえ)で垂直に近く、
+           height=0(いちばんした)で水平に近い角度になる。JS: updateIllustHeight()
+         - 左右(縦軸中心の回転): スタンドの縦軸(100,190)を中心に、シュート一式
+           (illustAzimuthGroup、illustInclineGroupの親)がCSSの3D回転
+           (perspective+rotateY)で奥行き方向に回転する。JS: updateIllustLR()
+         地面・三脚・スタンドの縦軸自体は固定(回転・傾斜どちらにも追従しない)。
          p=0/p=1どちらでも使う共有要素のため、どちらの構造にも属さない
          中立な位置に置き、実際の表示先(p=1ならcontentRow、p=0なら
-         standard-illust-row)へはJSで移動する(モードの判定・DOM移動は
-         main()内で行う。DOM構造自体はここでは中立のまま)。
+         standard-illust-row)へはJSで移動する(main()内で行う)。
          ============================================================ -->
     <div class="illust-stage" id="illustStage" style="display:none;">
       <svg viewBox="0 0 200 300" preserveAspectRatio="xMidYMid meet" aria-label="ロボットランプのイラスト">
-        <!-- 地面。左右は回転運動(スライドではない)のため、地面・台座ともに動かない固定要素 -->
+        <!-- 地面(固定) -->
         <line x1="10" y1="280" x2="190" y2="280" stroke="#1f5c73" stroke-width="4" stroke-linecap="round"/>
-        <!-- 本体の台座(固定、回転しない) -->
-        <rect x="70" y="262" width="60" height="20" rx="4" fill="#1f5c73"/>
-        <!-- ★PoC修正: 左右移動は水平スライドではなく回転運動。台座上部の固定点
-             (100,262)を中心に、腕(支柱+ボール)一式が左右それぞれ最大85°まで
-             回転する(正面=0°)。JS: updateIllustLR() -->
-        <g id="illustLampGroup">
-          <!-- 高さ方向の支柱(ボールが上下する軌道) -->
-          <line x1="100" y1="262" x2="100" y2="40" stroke="#1f5c73" stroke-width="6" stroke-linecap="round"/>
-          <!-- ボール本体(高さに応じてtranslateYで移動。JS: updateIllustHeight()) -->
-          <g id="illustBallGroup">
-            <circle cx="100" cy="262" r="16" fill="var(--ramp-color, #cc2b2b)" stroke="#111" stroke-width="2"/>
+        <!-- 三脚の脚(固定、回転・傾斜どちらにも追従しない) -->
+        <path d="M 70 280 L 94 250 M 130 280 L 106 250 M 100 280 L 100 250"
+              stroke="#1f5c73" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- スタンドの縦軸(固定)。この軸を中心に左右(3D回転)する -->
+        <line x1="100" y1="250" x2="100" y2="190" stroke="#1f5c73" stroke-width="6" stroke-linecap="round"/>
+        <!-- ヒンジ(傾斜の中心点の目印、固定) -->
+        <circle cx="100" cy="190" r="7" fill="#555" stroke="#222" stroke-width="1.5"/>
+
+        <!-- ★左右(縦軸中心の3D回転)。JS: updateIllustLR() -->
+        <g id="illustAzimuthGroup">
+          <!-- ★たかさ(ヒンジ中心の傾斜、2D回転)。JS: updateIllustHeight() -->
+          <g id="illustInclineGroup">
+            <!-- シュートのレール(左右2本、実機同様わずかに湾曲させている) -->
+            <path d="M 92 190 C 88 150, 92 70, 96 30" stroke="#cc2b2b" stroke-width="6" fill="none" stroke-linecap="round"/>
+            <path d="M 108 190 C 112 150, 108 70, 104 30" stroke="#cc2b2b" stroke-width="6" fill="none" stroke-linecap="round"/>
+            <!-- ボール(リリース側の近くにセットされている状態を表現) -->
+            <circle cx="100" cy="52" r="13" fill="var(--ramp-color, #cc2b2b)" stroke="#111" stroke-width="2"/>
           </g>
         </g>
       </svg>
@@ -1134,37 +1152,44 @@ if (PANEL_MODE) {
 }
 
 // ========================================
-// ★PoC: ロボットランプ イラスト表示 — ボール上下移動アニメーション
+// ★PoC再設計: ロボットランプ イラスト表示 — たかさ(傾斜角)アニメーション
 // ========================================
-// 高さ(0-100)をイラストのボール位置(SVG座標系のtranslateY)に変換する。
-// PANEL_MODE以外(このPoCではillust-stage自体が存在しない)や、要素が
-// 見つからない場合は何もしない(本体側の状態機械には一切影響させない)。
-// CSS側の #illustBallGroup { transition: transform 2s ease; } と対で、
+// 高さ(0-100)を、ヒンジ(100,190)を中心としたシュートの傾斜角に変換する。
+// 実機写真を踏まえ、height=100(いちばんうえ)でシュートがほぼ垂直(0°)、
+// height=0(いちばんした)でほぼ水平に近い角度(MAX_TILT_DEG)になるよう
+// マッピングしている(SVG側のシュートは「垂直に立った状態」を基準の
+// 描画姿勢としているため、傾ける量は (100-height) に比例する)。
+// 要素が見つからない場合は何もしない(本体側の状態機械には一切影響させない)。
+// CSS側の #illustInclineGroup{transition: transform 2s ease;} と対で、
 // moveHeight/setHeightPresetのDEMO_MODEディレイ(2000ms)に時間を合わせている。
 function updateIllustHeight(value) {
-  const g = document.getElementById('illustBallGroup');
+  const g = document.getElementById('illustInclineGroup');
   if (!g) return;
   const clamped = Math.max(0, Math.min(100, value));
-  const RANGE_PX = 210; // 高さ0→100の移動量(SVG viewBox座標系のpx)
-  g.style.transform = 'translateY(' + (-(clamped / 100) * RANGE_PX) + 'px)';
+  const MAX_TILT_DEG = 75; // height=0での、垂直姿勢からの傾き量(度)
+  const tiltDeg = (100 - clamped) / 100 * MAX_TILT_DEG;
+  g.style.transform = 'rotate(' + tiltDeg + 'deg)';
 }
 
 // ========================================
-// ★PoC修正: ロボットランプ イラスト表示 — ランプ回転アニメーション
+// ★PoC再設計: ロボットランプ イラスト表示 — 左右(縦軸中心)回転アニメーション
 // ========================================
-// 左右位置(-100〜100、+が みぎ)を、台座上部の固定点を中心とした
-// 回転角度に変換する。実機の仕様上、左右は水平スライドではなく回転運動
-// であり、正面(LR=0)を0°として、左右それぞれ最大値(LR=±100)で85°まで
-// 回転する。updateIllustHeight()と同様、要素が無い場合は何もしない。
-// CSS側の #illustLampGroup{transition: transform 0.6s ease;
-// transform-origin: 100px 262px;} と対で、moveLR()のDEMO_MODEディレイ
-// (500ms)+モーター/音声待機の目安に時間を合わせている。
+// 左右位置(-100〜100、+が みぎ)を、スタンドの縦軸上のヒンジ(100,190)を
+// 中心とした3D回転(rotateY)角度に変換する。実機は水平移動ではなく縦軸を
+// 中心とした回転運動であり、正面(LR=0)を0°として、左右それぞれ最大値
+// (LR=±100)で85°まで回転する。真横から見た構図とは奥行き方向が直交する
+// ため、CSSのperspective(.illust-stage)+rotateYで奥行きの回転(遠近感つき)
+// として近似的に表現している。updateIllustHeight()と同様、要素が見つから
+// ない場合は何もしない。CSS側の #illustAzimuthGroup{transition: transform
+// 0.6s ease; transform-origin: 100px 190px; transform-style: preserve-3d;}
+// と対で、moveLR()のDEMO_MODEディレイ(500ms)+モーター/音声待機の目安に
+// 時間を合わせている。
 function updateIllustLR(value) {
-  const g = document.getElementById('illustLampGroup');
+  const g = document.getElementById('illustAzimuthGroup');
   if (!g) return;
   const clamped = Math.max(-100, Math.min(100, value));
   const ROT_RANGE_DEG = 85; // 左右-100→100の回転角度(度)。正面(0)=0°
-  g.style.transform = 'rotate(' + (clamped / 100 * ROT_RANGE_DEG) + 'deg)';
+  g.style.transform = 'rotateY(' + (clamped / 100 * ROT_RANGE_DEG) + 'deg)';
 }
 
 let ONCONNECT_LOCK = false;
