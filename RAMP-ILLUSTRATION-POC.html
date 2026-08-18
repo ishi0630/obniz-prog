@@ -1374,16 +1374,34 @@ obniz.onconnect = async function () {
       // 140px幅で上下させる分のズレ量を、描画位置からの相対移動として与える。
       const dy = 70 - (clamped / 100) * 140;
       ballEl.style.transform = 'translateY(' + dy + 'px)';
-      // ★追加: 絵の上部の値表示(移動後の値のみ、矢印表示は無し)。
-      // パネルのメッセージ(fmtIdle()等)と同じmsg_Hを使って形式を揃える。
+    }
+    // ★修正: 絵の上部の値表示(移動後の値のみ、矢印表示は無し)は、当初
+    // updateIllustHeight()の中で一緒に更新していたが、それだと「50→52」の
+    // 移動中表示をしている間に(ボールと同時に)先に「たかさ52」が
+    // 出てしまい、パネルのメッセージが実際に「52 OK!」へ切り替わる
+    // タイミングとズレて見える、との指摘があった。ボールの移動アニメーション
+    // (updateIllustHeight())と値表示の更新タイミングを分離し、値表示は
+    // CF()(=パネルのfmtIdle()が確定するのと同じタイミング)でのみ
+    // 更新するようにした。
+    function updateIllustHeightLabel(value) {
       const heightLabelEl = document.getElementById('illustHeightValueLabel');
-      if (heightLabelEl) heightLabelEl.textContent = msg_H + clamped;
+      if (!heightLabelEl) return;
+      const clamped = Math.max(0, Math.min(100, value));
+      heightLabelEl.textContent = msg_H + clamped;
     }
     // ★追加: パネルのメッセージ(fmtIdle()等)と同じ形式(msg_L/msg_R + 絶対値)で、
     // 方向の値表示テキストを組み立てる。check_LR()のLR_LR/LR_No_DSP算出と同じロジック。
     function lrValueLabelText(value) {
       const lr = value < 0 ? msg_L : (value > 0 ? msg_R : ' ');
       return lr + Math.abs(value);
+    }
+    // ★修正: たかさと同様、方向の値表示もupdateIllustLR()(針のアニメーション)
+    // から切り離し、CF()のタイミングでのみ更新するようにした。
+    function updateIllustLRLabel(value) {
+      const directionLabelEl = document.getElementById('illustDirectionValueLabel');
+      if (!directionLabelEl) return;
+      const clamped = Math.max(-100, Math.min(100, value));
+      directionLabelEl.textContent = lrValueLabelText(clamped);
     }
     // ★追加: 方向ゲージの楕円(中心100,325・Rx=41・Ry=70)上の、
     // 値(-100〜100、角度は±90°)に対応する座標を返す。
@@ -1403,10 +1421,6 @@ obniz.onconnect = async function () {
       const needleLineEl = document.getElementById('illustDirectionNeedleLine');
       if (!needleLineEl) return;
       const target = Math.max(-100, Math.min(100, value));
-      // ★追加: 絵の上部の値表示(移動後の値のみ、矢印表示は無し)。
-      // パネルのメッセージと同じ形式(lrValueLabelText())で揃える。
-      const directionLabelEl = document.getElementById('illustDirectionValueLabel');
-      if (directionLabelEl) directionLabelEl.textContent = lrValueLabelText(target);
       function setTip(v) {
         const tip = needleTipFor(v);
         needleLineEl.setAttribute('x2', tip.x.toFixed(2));
@@ -1505,7 +1519,9 @@ obniz.onconnect = async function () {
        RR.isClicked();
        DISP.setText(fmtIdle());
        updateIllustHeight(LOC_No_N);
+       updateIllustHeightLabel(LOC_No_N);
        updateIllustLR(LR_No_N);
+       updateIllustLRLabel(LR_No_N);
     }
 
 // ========================================
@@ -1773,7 +1789,9 @@ async function moveLR(delta, speedValue, playFreq) {
   // 初期位置表示をループ前に1度だけ確実に実行
   DISP.setText(fmtIdle());
   updateIllustHeight(LOC_No_N);
+  updateIllustHeightLabel(LOC_No_N);
   updateIllustLR(LR_No_N);
+  updateIllustLRLabel(LR_No_N);
 
   while (LOOP_ACTIVE) {
     // ★【修正箇所】複数ブラウザ遅延対策：ループ冒頭の高速画面更新（wait 20ms と DISP.setText）を削除。
