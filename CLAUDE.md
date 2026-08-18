@@ -25,6 +25,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `lg` | 表示言語(J=日本語 / それ以外=フランス語)。大文字小文字区別なし | `J`（`d=1`時は指定によらず常にJ固定） |
 | `d`  | デモモード(1=シミュレーション / 0=実機接続) | `0`（**このデフォルトは変更しない方針**。デモ配布時はURL側で`?d=1`を付ける運用） |
 | `p`  | 操作パネル(1=△の大きいボタンパネルUI / 0=標準の小ボタンUI) | `0` |
+| `id` | obniz device ID（8桁の数字。ハイフン・空白は自動除去）。**RAMP-DEMO.htmlのみ対応**（`RAMP-ILLUSTRATION-POC.html`には未反映） | `00000000`（8桁数字以外は全て安全側でこのダミーIDにフォールバック。実機確認時にURL側でその場限り指定する用途。**コードに実IDを書き込まないこと**） |
 
 ## アーキテクチャ
 
@@ -67,7 +68,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 安全上・運用上の重要ルール（必ず守ること）
 
 - **本リポジトリ（GitHub）は不特定多数がアクセスする公開デモ専用**。本番の実機制御コードはobniz社リポジトリ側（現時点、将来的にはAzureへ移行予定）で別途管理している。
-- そのため `RAMP-DEMO.html` 内のobniz device IDは**ダミー値`"00000000"`で固定**している（`RN===1`/`RN===2`どちらの分岐も同一のダミー値）。**実機のdevice IDを絶対にこのリポジトリに含めないこと。**
+- そのため `RAMP-DEMO.html` 内のobniz device IDは**デフォルトでダミー値`"00000000"`**になる（`RN===1`/`RN===2`どちらの分岐も同一）。URLパラメータ`id`（8桁の数字）で実機確認用に一時的に上書きできるが、これは**コードに実IDを書き込むためのものではない**。**実機のdevice IDを絶対にこのリポジトリのコード・コミットに含めないこと。**（`RAMP-ILLUSTRATION-POC.html`にはこの`id`パラメータ機能は未反映）
 - `d`パラメータのデフォルト（省略時=`"0"`＝実機モード）は**変更しない方針**。デモとして配布するURLには、コード側でなく**URL側に`?d=1`を明示して**運用する。
 - `p=0`（標準UI）は現状、jQuery（obniz.io）・Bootstrap CSS（stackpath）・obniz-parts-kits一式（unpkg.com、opencv.js等の大きいファイル含む）を外部CDNから動的読み込みする仕様のまま。自リポジトリへの取り込み（vendoring）は未着手（将来検討事項。obniz社の「リポジトリ」機能は今年度末＝2027年3月末までに終了予定だが、obniz.io自体の静的ファイル配信やobnizサービス本体は継続する前提で現状維持としている）。
 
