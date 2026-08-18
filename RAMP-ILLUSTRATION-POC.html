@@ -378,10 +378,16 @@
         flex:3 1 0;
         min-width:0;
       }
+      /* ★修正: パネル側をalign-items:flex-start(上寄せ)にしたが、
+         illust-stage側はalign-self:centerのままだったため、
+         画面幅を変えるとillust-stageの高さ(aspect-ratio経由で幅から
+         算出)が変わり、中央揃えの結果イラストの位置だけ上下にずれて
+         見える不具合があった。パネル側と同じflex-startに揃えることで、
+         画面幅によらず常に同じ上端位置から始まるようにした。 */
       .illust-stage{
         flex:1 1 0;
         min-width:0;
-        align-self:center; /* 高さがcontent-rowいっぱいにstretchされるのを防ぎ、aspect-ratio通りの高さにする */
+        align-self:flex-start;
         aspect-ratio: 148 / 370;
         display:flex;
         align-items:center;
@@ -1468,8 +1474,14 @@ obniz.onconnect = async function () {
     }
 
 // Position LOC/LR get EEPROM & set/DISP ------------------------------------------------------------------------
+    // ★修正: 他のfmt*系関数(fmtIdle/fmtHeightMoving等)はPANEL_MODEで
+    // COLORの絵文字を出し分けているのに対し、ここだけPANEL_MODEを見ずに
+    // 常にCOLORを付けていたため、パネルUI(p=1)でも移動のたびに一瞬
+    // 「🔴 WAIT!」のようにボール絵文字が中央メッセージに表示されてしまう
+    // 不具合があった(ボタン操作のたびにpos_set()が呼ばれるため)。
+    // 他の関数と同じ基準に揃え、PANEL_MODE時はCOLORを付けないようにした。
     async function pos_set() {
-        DISP.setText(String(COLOR) + msg_WT);
+        DISP.setText((PANEL_MODE ? '' : String(COLOR)) + msg_WT);
         LOC_No_N = await readEEPROM(ADDR_HEIGHT);   // READ LOC DATA
     }
 
