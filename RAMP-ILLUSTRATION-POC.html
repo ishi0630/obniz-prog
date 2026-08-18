@@ -419,10 +419,13 @@
       #illustBallGroup{
         transition: transform 2s ease;
       }
-      /* ★PoC: ランプの左右移動アニメーション。moveLR()のDEMO_MODEディレイ
-         (500ms)+モーター/音声の待機時間の目安に合わせて0.6secにしてある。 */
+      /* ★PoC修正: ランプの左右は水平移動ではなく回転運動。台座上部の固定点
+         (100,262、SVG viewBox座標系)を中心に回転させるため、transform-origin
+         をその座標に指定する。moveLR()のDEMO_MODEディレイ(500ms)+
+         モーター/音声の待機時間の目安に合わせてtransition時間は0.6secにしてある。 */
       #illustLampGroup{
         transition: transform 0.6s ease;
+        transform-origin: 100px 262px;
       }
       .demo-banner{
         background:#fff3cd;color:#7a5b00;border:1px solid #ffe08a;
@@ -623,15 +626,16 @@
          ============================================================ -->
     <div class="illust-stage" id="illustStage" style="display:none;">
       <svg viewBox="0 0 200 300" preserveAspectRatio="xMidYMid meet" aria-label="ロボットランプのイラスト">
-        <!-- 地面(レール)。ランプが左右移動しても、地面自体は動かない固定要素 -->
+        <!-- 地面。左右は回転運動(スライドではない)のため、地面・台座ともに動かない固定要素 -->
         <line x1="10" y1="280" x2="190" y2="280" stroke="#1f5c73" stroke-width="4" stroke-linecap="round"/>
-        <!-- ★PoC追加: ランプ本体(台座+支柱+ボール)一式。左右位置に応じてtranslateXで
-             まとめて移動する。JS: updateIllustLR() -->
+        <!-- 本体の台座(固定、回転しない) -->
+        <rect x="70" y="262" width="60" height="20" rx="4" fill="#1f5c73"/>
+        <!-- ★PoC修正: 左右移動は水平スライドではなく回転運動。台座上部の固定点
+             (100,262)を中心に、腕(支柱+ボール)一式が左右それぞれ最大85°まで
+             回転する(正面=0°)。JS: updateIllustLR() -->
         <g id="illustLampGroup">
-          <!-- 本体の台座 -->
-          <rect x="70" y="262" width="60" height="20" rx="4" fill="#1f5c73"/>
           <!-- 高さ方向の支柱(ボールが上下する軌道) -->
-          <line x1="100" y1="266" x2="100" y2="40" stroke="#1f5c73" stroke-width="6" stroke-linecap="round"/>
+          <line x1="100" y1="262" x2="100" y2="40" stroke="#1f5c73" stroke-width="6" stroke-linecap="round"/>
           <!-- ボール本体(高さに応じてtranslateYで移動。JS: updateIllustHeight()) -->
           <g id="illustBallGroup">
             <circle cx="100" cy="262" r="16" fill="var(--ramp-color, #cc2b2b)" stroke="#111" stroke-width="2"/>
@@ -1146,19 +1150,21 @@ function updateIllustHeight(value) {
 }
 
 // ========================================
-// ★PoC: ロボットランプ イラスト表示 — ランプ左右移動アニメーション
+// ★PoC修正: ロボットランプ イラスト表示 — ランプ回転アニメーション
 // ========================================
-// 左右位置(-100〜100、+が みぎ)をイラストのランプ本体位置
-// (SVG座標系のtranslateX)に変換する。updateIllustHeight()と同様、
-// 要素が無い場合は何もしない。CSS側の #illustLampGroup{transition:
-// transform 0.6s ease;} と対で、moveLR()のDEMO_MODEディレイ(500ms)+
-// モーター/音声待機の目安に時間を合わせている。
+// 左右位置(-100〜100、+が みぎ)を、台座上部の固定点を中心とした
+// 回転角度に変換する。実機の仕様上、左右は水平スライドではなく回転運動
+// であり、正面(LR=0)を0°として、左右それぞれ最大値(LR=±100)で85°まで
+// 回転する。updateIllustHeight()と同様、要素が無い場合は何もしない。
+// CSS側の #illustLampGroup{transition: transform 0.6s ease;
+// transform-origin: 100px 262px;} と対で、moveLR()のDEMO_MODEディレイ
+// (500ms)+モーター/音声待機の目安に時間を合わせている。
 function updateIllustLR(value) {
   const g = document.getElementById('illustLampGroup');
   if (!g) return;
   const clamped = Math.max(-100, Math.min(100, value));
-  const RANGE_PX_LR = 60; // 左右-100→100の移動量(SVG viewBox座標系のpx)
-  g.style.transform = 'translateX(' + (clamped / 100 * RANGE_PX_LR) + 'px)';
+  const ROT_RANGE_DEG = 85; // 左右-100→100の回転角度(度)。正面(0)=0°
+  g.style.transform = 'rotate(' + (clamped / 100 * ROT_RANGE_DEG) + 'deg)';
 }
 
 let ONCONNECT_LOCK = false;
