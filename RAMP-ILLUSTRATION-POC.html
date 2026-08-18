@@ -387,10 +387,13 @@
          クランプし、高さはaspect-ratioでその幅に追従させることで、
          画面が狭い時はillust-stage自身も一緒に縮み、panel-stage側に
          きちんとスペースを譲るようにした。 */
+      /* ★修正: まだ画面が狭い時にパネル側の文字・矢印が収まりきらない
+         (折り返し)ことがあったため、illust-stageの上限をさらに小さく
+         した(30vw→20vw、高さ上限480px→380px)。 */
       .illust-stage{
         flex:0 0 auto;
         align-self:center;
-        width: min(30vw, calc(70vh * 148 / 300), 236.8px);
+        width: min(20vw, calc(55vh * 148 / 300), 187.5px);
         aspect-ratio: 148 / 300;
         height:auto;
         display:flex;
