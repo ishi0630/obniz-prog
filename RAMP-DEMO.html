@@ -218,11 +218,6 @@
         return new Promise((resolve, reject) => {
           const s = document.createElement('script');
           s.src = src;
-          // ★追加: crossorigin指定なしだと、このscript内で発生した実行時エラーが
-          // ブラウザのセキュリティ制限により「Script error.」としてしか見えず、
-          // window.addEventListener('error', ...)側で原因の特定ができないため付与
-          // （読み込み先のCDNはCORS対応済みのため読み込み自体への影響はない）
-          s.crossOrigin = 'anonymous';
           s.onload = resolve;
           s.onerror = () => reject(new Error(src + ' の読み込みに失敗しました（ネットワークをご確認ください）'));
           document.head.appendChild(s);
@@ -855,9 +850,6 @@ if (!DEMO_MODE) {
   await new Promise((resolve, reject) => {
     const s = document.createElement('script');
     s.src = 'https://unpkg.com/obniz@3.19.0/obniz.js';
-    // ★追加: crossorigin指定なしだと、obniz.js内で発生した実行時エラーが
-    // 「Script error.」としてしか見えず原因特定ができないため付与
-    s.crossOrigin = 'anonymous';
     s.onload = resolve;
     s.onerror = () => reject(new Error('obniz.jsの読み込みに失敗しました（ネットワークをご確認ください）'));
     document.head.appendChild(s);
@@ -2163,7 +2155,23 @@ async function moveLR(delta, speedValue, playFreq) {
         MESSAGE = '';
       }
 	  }
-    } finally {
+    } catch (e) {
+    // ★追加: 外部CDN(obniz.js等)側の関数呼び出しで例外が起きても、ここで
+    // 直接catchすれば実IDやその他の詳細情報を含まない安全な形でメッセージ・
+    // スタックトレースを見られる（window.onerror経由だとcross-originの
+    // 制約で「Script error.」としてしか表示されないための対策）
+    console.error('[obniz.onconnect] エラー:', e);
+    var msg = document.getElementById('fatal-error-banner');
+    if (!msg) {
+      msg = document.createElement('div');
+      msg.id = 'fatal-error-banner';
+      msg.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#d32f2f;color:#fff;padding:10px 14px;font-size:13px;z-index:9999;white-space:pre-wrap;font-family:monospace;';
+      document.body.prepend(msg);
+    }
+    msg.textContent += (msg.textContent ? '\n' : '') +
+      'エラー(onconnect内): ' + (e && e.message ? e.message : String(e)) +
+      (e && e.stack ? '\n' + e.stack : '');
+  } finally {
     ONCONNECT_LOCK = false;
     LOOP_ACTIVE = false;
   }
