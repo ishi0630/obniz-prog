@@ -453,6 +453,15 @@
         font-weight:bold;
         border-radius:6px 6px 0 0;
         background: var(--ramp-color, var(--panel-main)); /* ★追加: ランプカラーに合わせる(JS側で--ramp-colorを設定) */
+        /* ★追加【パネルタイトル折り返し対策】: white-space:normal(既定)だと
+           幅が足りない時に折り返してscrollWidthが正しく測れず(折り返した
+           結果の幅=clientWidthになってしまう)、fitPanelToWindow側の
+           縮小判定が機能しなかった。nowrap化して常に1行の実測幅を
+           scrollWidthから取れるようにし、収まらない時はJS側でfont-sizeを
+           縮小する。それでも収まりきらない極端なケースの保険としてoverflow:
+           hiddenも付けておく。 */
+        white-space:nowrap;
+        overflow:hidden;
       }
 
       .panel{ position:relative; }
@@ -1139,6 +1148,27 @@ if (PANEL_MODE) {
       panel.style.width = w + 'px';
       panel.style.height = h + 'px';
 
+      // ★追加【ランプ絵はみ出し/極端縮小対策】: illust-stage側は従来
+      // flex:1(=content-rowの1/4幅)+aspect-ratioというCSSだけのサイズ決定
+      // だったが、panelは↑のように「幅優先→高さが収まらなければ高さ優先」で
+      // 縮小する(=常にcontent-rowの3/4幅を使うとは限らない)。この2つは
+      // 独立に決まるため、ウィンドウ縦横比によっては
+      // 「illust側だけ元の1/4幅のまま大きくなりcontent-rowの高さを超えて
+      //   はみ出す」「panelだけ縮んでillustとの比率が崩れて見える」
+      // といったズレが発生していた。ここでpanelの実際の描画幅(w)を基準に
+      // illust-stageの幅を都度「panel幅の1/3」に固定し、必ず連動させる。
+      const illustStageEl = document.getElementById('illustStage');
+      if (illustStageEl) {
+        const illustW = w / 3;
+        const illustH = illustW * (370 / 148); // viewBoxの縦横比(148:370)に合わせる
+        // flex-shrinkは0ではなく1にしておく(極端に狭いウィンドウで
+        // panel-stage側の最小幅すら確保できない場合に、illust側も
+        // 応分に縮んでcontent-row全体の横はみ出しを防ぐ安全策)
+        illustStageEl.style.flex = '0 1 ' + illustW + 'px';
+        illustStageEl.style.width = illustW + 'px';
+        illustStageEl.style.height = illustH + 'px';
+      }
+
       // ★修正【なげるギミック対策・再修正】: 情報パネル(左右ボタンに挟まれた
       // 中央の狭いエリア)自身の実際の幅を測り、そこに収まるフォントサイズを計算する。
       // 演出の最長行は「全角スペース20個＋絵文字(約2em)＋◯(1em)」＝約23単位分の
@@ -1151,6 +1181,26 @@ if (PANEL_MODE) {
           (parseFloat(getComputedStyle(infoPanelEl0).paddingRight) || 0);
         const pitFontSize = Math.max(6, Math.min(26, infoW / 24));
         panel.style.setProperty('--pit-font', pitFontSize + 'px');
+      }
+
+      // ★追加【パネルタイトル折り返し対策】: タイトル(「オンラインボッチャ
+      // [ランプ1]」等)のfont-sizeは固定34pxだったため、panelがウィンドウ
+      // 形状によって想定より狭くなる場面(高さ優先で縮小された時等)に
+      // 折り返して赤い見出し帯からはみ出す不具合があった。基準サイズ(34px)
+      // での実際の文字幅を測り、パネル幅に収まるよう比例縮小することで、
+      // 言語(J/F)やランプ番号の桁数によらず常に1行に収まるようにする。
+      const titleEl = panel.querySelector('.panel-title');
+      if (titleEl) {
+        const BASE_TITLE_FONT = 34;
+        titleEl.style.fontSize = BASE_TITLE_FONT + 'px';
+        const padLR = (parseFloat(getComputedStyle(titleEl).paddingLeft) || 0) +
+          (parseFloat(getComputedStyle(titleEl).paddingRight) || 0);
+        const availTitleW = titleEl.clientWidth - padLR;
+        const textW = titleEl.scrollWidth - padLR;
+        if (availTitleW > 0 && textW > availTitleW) {
+          const scaled = Math.max(12, BASE_TITLE_FONT * (availTitleW / textW) * 0.95);
+          titleEl.style.fontSize = scaled + 'px';
+        }
       }
     }
     fitPanelToWindow();
