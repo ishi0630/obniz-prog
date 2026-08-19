@@ -802,6 +802,10 @@ const RS = getParam("rs", "S");
 // は安全側に倒してダミーIDのまま扱う。
 const OBNIZ_ID_RAW = (getParam("id", "") || "").replace(/[-\s]/g, "");
 const OBNIZ_ID = /^[0-9]{8}$/.test(OBNIZ_ID_RAW) ? OBNIZ_ID_RAW : "00000000";
+// ★一時デバッグ用（実ID自体は出力しない。桁数とパース結果のみ確認用）:
+console.log("[DEBUG][id parse] rawLength=" + OBNIZ_ID_RAW.length +
+  " matched8digit=" + /^[0-9]{8}$/.test(OBNIZ_ID_RAW) +
+  " usingDummy=" + (OBNIZ_ID === "00000000"));
 
 // ★修正: --ramp-color(イラストのボール/針・パネルタイトル背景等で使用)は、
 // 以前はobniz.onconnect内(実機が実際に接続した時だけ発火)で設定していたため、
