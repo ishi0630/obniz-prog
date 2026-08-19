@@ -485,6 +485,16 @@
       .panel .btn:hover{ background:var(--panel-hover); }
       .panel .btn:active{ transform: scale(0.96); background:#c9dee6; }
 
+      /* ★追加: 1つのアクション実行中(ACTION_LOCK)は、次のボタンを受け付ける
+         までボタンを押せない見た目にする(連打・多重動作対策)。
+         pointer-events:noneでクリック自体を無効化し、見た目もグレーアウトする。 */
+      .panel.panel-busy .btn{
+        pointer-events:none;
+        opacity:.45;
+        cursor:not-allowed;
+      }
+      .panel.panel-busy .btn:hover{ background:#fff; }
+
       /* ★修正: なげるボタンが上段(うえ▲の隣)に来たため、うえボタンは
          単独でwidth:100%ではなく、下段のした/なげると同じ比率
          (1.23:1)でなげると横並びにする。下段はしただけになったが、
@@ -1227,11 +1237,15 @@ if (PANEL_MODE) {
     if (el) el.style.display = 'none';
   });
 
-  document.getElementById('btnUp').addEventListener('click', function () { U.click(); });
-  document.getElementById('btnDown').addEventListener('click', function () { D.click(); });
-  document.getElementById('btnLeft').addEventListener('click', function () { L.click(); });
-  document.getElementById('btnRight').addEventListener('click', function () { R.click(); });
-  document.getElementById('btnThrow').addEventListener('click', function () { PIT.click(); });
+  // ★追加: 1つのアクションが完了(ACTION_LOCK解除)するまで、△パネルの
+  // ボタンは押しても反応しないようにする(連打による多重動作・誤操作対策)。
+  // ACTION_LOCKはobniz.onconnect内の各アクションで管理されているため、
+  // ここでは値を直接見るだけ(=false)の時だけ橋渡し(.click())を通す。
+  document.getElementById('btnUp').addEventListener('click', function () { if (!ACTION_LOCK) U.click(); });
+  document.getElementById('btnDown').addEventListener('click', function () { if (!ACTION_LOCK) D.click(); });
+  document.getElementById('btnLeft').addEventListener('click', function () { if (!ACTION_LOCK) L.click(); });
+  document.getElementById('btnRight').addEventListener('click', function () { if (!ACTION_LOCK) R.click(); });
+  document.getElementById('btnThrow').addEventListener('click', function () { if (!ACTION_LOCK) PIT.click(); });
 
   // タイトル(bploading)をパネル上部へ移動
   const panelEl = document.querySelector('#customPanelWrap .panel');
@@ -1239,6 +1253,24 @@ if (PANEL_MODE) {
   if (panelEl && bploadingEl) {
     bploadingEl.classList.add('panel-title');
     panelEl.insertBefore(bploadingEl, panelEl.firstChild);
+  }
+
+  // ★追加: ACTION_LOCK中は見た目もボタンを押せない状態(グレーアウト+
+  // pointer-events:none)にする。ACTION_LOCKは複数箇所で書き換わるため、
+  // 個々の書き換え箇所には手を入れず、rAFで値を監視してクラスに反映する。
+  if (panelEl) {
+    (function () {
+      let lastBusy = null;
+      function syncPanelBusy() {
+        const busy = !!ACTION_LOCK;
+        if (busy !== lastBusy) {
+          panelEl.classList.toggle('panel-busy', busy);
+          lastBusy = busy;
+        }
+        requestAnimationFrame(syncPanelBusy);
+      }
+      requestAnimationFrame(syncPanelBusy);
+    })();
   }
 
   // DISP（「たかさ...OK!」表示）を情報パネルの中へ移動
@@ -1287,6 +1319,41 @@ if (PANEL_MODE) {
       obnizOutputEl.parentNode.insertBefore(rowEl, obnizOutputEl);
       rowEl.appendChild(illustEl);
       rowEl.appendChild(obnizOutputEl);
+
+      // ★追加【p=0のランプ絵はみ出し/極端縮小対策】: p=1のfitPanelToWindowと
+      // 同じ考え方で、illust-stageのサイズをOBNIZ_OUTPUT(標準UI本体)の
+      // 実際の描画サイズに連動させる。以前はflex:1(=行の1/4幅)+
+      // aspect-ratioのCSSだけで高さを決めていたため、OBNIZ_OUTPUT側の
+      // 実際の高さと無関係にillust側だけ大きく/小さくなり、はみ出しや
+      // 極端な縮小が起きていた。OBNIZ_OUTPUTの幅の1/3を基準に、高さが
+      // OBNIZ_OUTPUTの実際の高さを超える場合は高さ基準に切り替える
+      // (object-fit:containと同じ考え方)。
+      const fitIllustToStandardUI = function () {
+        const outW = obnizOutputEl.offsetWidth;
+        const outH = obnizOutputEl.offsetHeight;
+        if (outW <= 0 || outH <= 0) return;
+        let iw = outW / 3;
+        let ih = iw * (370 / 148);
+        if (ih > outH) {
+          ih = outH;
+          iw = ih * (148 / 370);
+        }
+        illustEl.style.flex = '0 0 ' + iw + 'px';
+        illustEl.style.width = iw + 'px';
+        illustEl.style.height = ih + 'px';
+      };
+      fitIllustToStandardUI();
+      requestAnimationFrame(function () {
+        requestAnimationFrame(fitIllustToStandardUI);
+      });
+      window.addEventListener('resize', fitIllustToStandardUI);
+      window.addEventListener('orientationchange', fitIllustToStandardUI);
+      // OBNIZ_OUTPUTは標準UIライブラリが非同期に中身を組み立てるため、
+      // 構築が進む度にサイズを再計算する。
+      const outputObserver = new MutationObserver(function () {
+        requestAnimationFrame(fitIllustToStandardUI);
+      });
+      outputObserver.observe(obnizOutputEl, { childList: true, subtree: true });
     }
   }
   illustEl.style.display = 'flex';
@@ -1294,6 +1361,10 @@ if (PANEL_MODE) {
 
 let ONCONNECT_LOCK = false;
 let LOOP_ACTIVE = false;
+// ★追加: △パネル(p=1)のボタン橋渡し処理(main()側、onconnectの外)からも
+// 「アクション実行中かどうか」を参照できるよう、外側スコープで宣言する
+// (元はonconnect内のローカル変数だった)。
+let ACTION_LOCK = false;
 
 obniz.onconnect = async function () {
 
@@ -1329,7 +1400,9 @@ obniz.onconnect = async function () {
 
     let LR_LR = '', LR_N_LR = '';
 
-    let ACTION_LOCK = false;
+    // ★変更: ACTION_LOCKは外側スコープへ移動したため、ここでは再宣言せず
+    // 接続の度にfalse(未ロック)へリセットするだけにする。
+    ACTION_LOCK = false;
 	LOOP_ACTIVE = true;
 
 // ========================================
@@ -2230,6 +2303,7 @@ async function moveLR(delta, speedValue, playFreq) {
 obniz.onclose = function () {
   LOOP_ACTIVE = false;
   ONCONNECT_LOCK = false;  // ★修正: 再接続時に必ずクリーンな状態から始められるようにする
+  ACTION_LOCK = false;     // ★追加: 切断時にボタンが押せないままロックされ続けないようにする
 };
 
 })(); // ★main() 終了
