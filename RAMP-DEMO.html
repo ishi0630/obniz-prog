@@ -108,6 +108,38 @@
     </script>
 
     <!-- ============================================================
+         ★追加【スマホで読み上げが無音になる対策・その2】:
+         iOS Safari等では、speechSynthesis.speak()がユーザーの実際の
+         タップ操作から間を置かず(同期的に)呼ばれないと無音になる制限が
+         ある。本体側は状態機械ループを介して非同期にspeak()を呼ぶため
+         (ボタン押下から最大500ms程度の遅延がある)、iOS Safariには
+         「ユーザー操作起点」と認識されず無音になっている可能性がある。
+         ページ内で最初に検知したタップ/クリックのタイミングで、
+         ほぼ無音の発声を1回直接実行して「解錠」しておくことで、
+         以降の非同期なspeak()呼び出しでも音が鳴るようにする
+         (iOSでのAudioContext解錠と同種の定番の回避策)。
+         ============================================================ -->
+    <script>
+      (function () {
+        if (typeof speechSynthesis === 'undefined') return;
+        var unlocked = false;
+        function unlockSpeech() {
+          if (unlocked) return;
+          unlocked = true;
+          try {
+            var u = new SpeechSynthesisUtterance(' ');
+            u.volume = 0.01;
+            speechSynthesis.speak(u);
+          } catch (e) { /* 無視 */ }
+          document.removeEventListener('click', unlockSpeech, true);
+          document.removeEventListener('touchend', unlockSpeech, true);
+        }
+        document.addEventListener('click', unlockSpeech, true);
+        document.addEventListener('touchend', unlockSpeech, true);
+      })();
+    </script>
+
+    <!-- ============================================================
          ★追加: 簡易jQuery代替
          外部CDN(jquery-3.2.1.min.js)への依存をなくすための自前実装。
          obniz-parts-kits の ui/index.js が使う最小限の機能のみ。
