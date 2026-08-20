@@ -345,9 +345,19 @@
         flex:1 1 auto;
         min-height:0;
         display:flex;
-        justify-content:center;
+        /* ★修正【ランプ絵とパネルの間隔がウィンドウ幅で伸び縮みする問題・
+           続き】: justify-content:centerだと、illust-stage側が高さ制約で
+           1/4幅より小さくなった分だけpanel-stage側がflex-growで余分に
+           広がり、その中でpanelが中央寄せされることでillust-stageとの間に
+           大きな空白ができてしまっていた(ウィンドウを広げるほど顕著)。
+           flex-startにして、panelが常にillust-stageのすぐ隣(間隔は
+           content-rowのgapのみ)に来るようにする。余った幅は右側の余白に
+           なるだけなので、ここは目立たない。 */
+        justify-content:flex-start;
         align-items:flex-start;
-        padding:1.5vh 1vw;
+        /* 左右のpaddingもvw基準だとwindow幅でillustとの間隔がわずかに
+           伸び縮みするため、固定pxにする(上下は従来通りvhのまま)。 */
+        padding:1.5vh 12px;
         box-sizing:border-box;
       }
       /* ============================================================
@@ -361,7 +371,11 @@
         min-height:0;
         display:flex;
         flex-direction:row;
-        gap:1vw;
+        /* ★修正【ランプ絵とパネルの間隔がウィンドウ幅で伸び縮みする問題】:
+           gapがvw単位(ウィンドウ幅に比例)だったため、ウィンドウを広げると
+           ランプ絵とパネルの間隔もどんどん広がってしまっていた。
+           間隔は常に一定にしたいので固定px値にする。 */
+        gap:16px;
         width:100%;
       }
       /* ★方針転換: 固定pxサイズやvw/vh基準のサイズ調整を色々試したが、
@@ -388,7 +402,9 @@
         display:flex;
         align-items:center;
         justify-content:center;
-        padding:1.5vh 1vw;
+        /* 左右のpaddingもvw基準だとwindow幅でpanelとの間隔がわずかに
+           伸び縮みするため、固定pxにする(上下は従来通りvhのまま)。 */
+        padding:1.5vh 12px;
         box-sizing:border-box;
       }
       .illust-stage svg{
@@ -1158,23 +1174,31 @@ if (PANEL_MODE) {
       panel.style.width = w + 'px';
       panel.style.height = h + 'px';
 
-      // ★追加【ランプ絵はみ出し/極端縮小対策】: illust-stage側は従来
-      // flex:1(=content-rowの1/4幅)+aspect-ratioというCSSだけのサイズ決定
-      // だったが、panelは↑のように「幅優先→高さが収まらなければ高さ優先」で
-      // 縮小する(=常にcontent-rowの3/4幅を使うとは限らない)。この2つは
-      // 独立に決まるため、ウィンドウ縦横比によっては
-      // 「illust側だけ元の1/4幅のまま大きくなりcontent-rowの高さを超えて
-      //   はみ出す」「panelだけ縮んでillustとの比率が崩れて見える」
-      // といったズレが発生していた。ここでpanelの実際の描画幅(w)を基準に
-      // illust-stageの幅を都度「panel幅の1/3」に固定し、必ず連動させる。
+      // ★修正【ランプ絵はみ出し/極端縮小対策・再修正】: 一度は「panelの
+      // 実描画幅(w)の1/3」を基準にしていたが、panelは幅優先→高さが
+      // 収まらなければ高さ優先で縮小するため、panelが高さ制約で縮んだ
+      // 場面ではillust側までつられて必要以上に小さくなってしまっていた
+      // (幅がpanel次第で変わり、間隔もvw基準で開いてしまう問題もあった)。
+      // ここではcontent-row自体の「1/4幅」を独立したバジェットとして
+      // 直接計算し(panelの縮小結果に依存させない)、それでもcontent-rowの
+      // 高さに収まらない場合だけ高さ基準に切り替える(object-fit:containと
+      // 同じ考え方)。gapも固定px(CSS側でgap:16px化)にしたので、
+      // ウィンドウ幅を変えても間隔は一定のまま。
       const illustStageEl = document.getElementById('illustStage');
-      if (illustStageEl) {
-        const illustW = w / 3;
-        const illustH = illustW * (370 / 148); // viewBoxの縦横比(148:370)に合わせる
-        // flex-shrinkは0ではなく1にしておく(極端に狭いウィンドウで
-        // panel-stage側の最小幅すら確保できない場合に、illust側も
-        // 応分に縮んでcontent-row全体の横はみ出しを防ぐ安全策)
-        illustStageEl.style.flex = '0 1 ' + illustW + 'px';
+      const contentRowEl = document.getElementById('contentRow');
+      if (illustStageEl && contentRowEl) {
+        const rowCs = getComputedStyle(contentRowEl);
+        const gapPx = parseFloat(rowCs.columnGap || rowCs.gap) || 0;
+        const rowW = contentRowEl.clientWidth;
+        const rowH = contentRowEl.clientHeight;
+        const widthBudget = Math.max(0, (rowW - gapPx) / 4);
+        let illustW = widthBudget;
+        let illustH = illustW * (370 / 148); // viewBoxの縦横比(148:370)に合わせる
+        if (illustH > rowH) {
+          illustH = rowH;
+          illustW = illustH * (148 / 370);
+        }
+        illustStageEl.style.flex = '0 0 ' + illustW + 'px';
         illustStageEl.style.width = illustW + 'px';
         illustStageEl.style.height = illustH + 'px';
       }
@@ -1967,6 +1991,12 @@ async function moveLR(delta, speedValue, playFreq) {
 
 //-[PIT]----------------------------------------------------------------------------------
       if (PIT.isClicked()) {
+        // ★追加: 他の10ボタンと同じくACTION_LOCKで多重実行・多重押下を防ぐ。
+        // 「なげる」だけこのガードが抜けており、△パネルUIでの
+        // 押下不可表示(panel-busy)も効いていなかったため追加した。
+        if (ACTION_LOCK) return;
+        ACTION_LOCK = true;
+        try {
         // ★変更: 「なげる」は実機/デモ・パネル/標準UIすべて共通で
         // 同じギミック(ボール移動演出)を使う。以前はデモ×パネルの時だけ
         // 「なげます」のみの簡略表示にしていたが、パネルの枠内にも
@@ -2049,6 +2079,9 @@ async function moveLR(delta, speedValue, playFreq) {
         }
         await pos_set();
         await CF();
+        } finally {
+          ACTION_LOCK = false;
+        }
 
 //-[U]----------------------------------------------------------------------------------
 } else if (U.isClicked()) {
