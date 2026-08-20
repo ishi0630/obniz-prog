@@ -13,7 +13,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 動作確認・デプロイ
 
 - ビルド/lint/testの仕組みは存在しない。`RAMP-DEMO.html` をそのままブラウザで開くか、GitHub Pagesで公開したURLにアクセスして動作確認する。
-- 現在、GitHub Pagesは `claude/online-boccia-robot-lamp-grtof1` ブランチ（`/`ルート）から公開されている（`main`へは未マージ）。公開URL例: `https://ishi0630.github.io/obniz-prog/RAMP-DEMO.html`
+- 開発用（このリポジトリ）: GitHub Pagesは `claude/online-boccia-robot-lamp-grtof1` ブランチ（`/`ルート）から公開されている（`main`へは未マージ）。公開URL例: `https://ishi0630.github.io/obniz-prog/RAMP-DEMO.html`
+- **一般公開用（別アカウント）**: 2026-08-20版フィックス時点の`RAMP-DEMO.html`を`RAMP20260820.html`としてエクスポートし、別のGitHubアカウント`online-boccia`のリポジトリ`ramp-demo`に`index.html`としてリリース済み。公開URL: `https://online-boccia.github.io/ramp-demo/`
+  - この`online-boccia/ramp-demo`は公開専用のミニマルなリポジトリで、このリポジトリ（`ishi0630/obniz-prog`）とは自動連携していない。開発・修正は引き続きこちら（`ishi0630/obniz-prog`）で行い、フィックスした版ができる都度、手動でファイルをエクスポートして`online-boccia/ramp-demo`側へ手動アップロード（上書き）する運用
+  - `online-boccia`アカウントはこのセッションのGitHub連携の対象外（別アカウントのため）。ファイルのアップロード等はユーザー本人がGitHub上で直接操作する必要がある
 - 動作確認は起動時URLパラメータで切り替える（詳細は次節）。デモとして開く場合は必ず `?d=1` を明示的に付与する（後述の通りデフォルトはd=0のまま変更しない方針）。
   - 例: `RAMP-DEMO.html?d=1&p=1`（デモ・△パネルUI、外部依存なしで最も手軽に確認できる）
   - 例: `RAMP-DEMO.html?d=1&p=0`（デモ・標準UI、外部CDN読み込みあり）
