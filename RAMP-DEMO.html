@@ -838,11 +838,25 @@
 (async function main() {
 
 // ========================================
-// ★★★ SINGLE TAB GUARD（修正版）★★★
+// ★★★ SINGLE TAB GUARD（修正版・タイムスタンプ+ハートビート方式）★★★
 // data:URL等、sessionStorageが使用禁止の環境でも落ちないようにする
+//
+// ★修正【iOS Safariでガードが解除されず張り付く問題への対策】:
+// 以前はbeforeunloadでフラグを消すだけの方式だったが、iOS Safariでは
+// タブを閉じても実際には「一時停止」扱いになり(タブの復元機能等)、
+// beforeunloadが確実に発火しないケースがあり、フラグが残り続けて
+// 「このタブはすでに起動中です」から永久に進めなくなる不具合があった。
+// 単なる「起動フラグの有無」ではなく「フラグに記録した時刻が新しいか」
+// で判定するタイムスタンプ方式に変更し、本当に開いているタブは一定間隔
+// (HEARTBEAT_MS)でフラグを更新し続け、閉じた(更新が止まった)タブの
+// フラグは STALE_MS 経過後に自動的に無効(古い)とみなして解除する。
+// これにより、beforeunload等のイベントが発火しなくても、一定時間後に
+// 必ず自己解決する。
 // ========================================
 
 const TAB_KEY = "OBNIZ_RAMP_TAB_LOCK";
+const TAB_STALE_MS = 5000;   // このミリ秒より古いフラグは「閉じたタブの残骸」とみなす
+const TAB_HEARTBEAT_MS = 2000; // 開いている間、この間隔でフラグの時刻を更新し続ける
 
 function safeSessionGet(key) {
   try { return sessionStorage.getItem(key); } catch (e) { return null; }
@@ -854,15 +868,23 @@ function safeSessionRemove(key) {
   try { sessionStorage.removeItem(key); } catch (e) { /* 無視 */ }
 }
 
-if (safeSessionGet(TAB_KEY)) {
+const _tabLockRaw = safeSessionGet(TAB_KEY);
+const _tabLockAt = _tabLockRaw ? Number(_tabLockRaw) : NaN;
+const _tabLockFresh = !isNaN(_tabLockAt) && (Date.now() - _tabLockAt) < TAB_STALE_MS;
+
+if (_tabLockFresh) {
   document.body.innerHTML =
     "<h3 style='text-align:center;margin-top:40vh;'>このタブはすでに起動中です</h3>";
   throw new Error("Blocked: duplicate tab");
 }
 
-safeSessionSet(TAB_KEY, "1");
+safeSessionSet(TAB_KEY, String(Date.now()));
+setInterval(() => { safeSessionSet(TAB_KEY, String(Date.now())); }, TAB_HEARTBEAT_MS);
 
 window.addEventListener("beforeunload", () => {
+  safeSessionRemove(TAB_KEY);
+});
+window.addEventListener("pagehide", () => {
   safeSessionRemove(TAB_KEY);
 });
 
