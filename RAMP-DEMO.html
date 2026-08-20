@@ -314,6 +314,14 @@
          button/ラベル)を対象にCSSで上書きする。obniz-parts-kits側は
          インラインstyleで font-size 等を指定してくるため、!importantで
          上書きする必要がある。 */
+      /* ★追加: パネル上部のメッセージ(たかさ...OK!等、obniz_label_*)は
+         obniz-parts-kits側の既定フォントサイズがボタン(30px)より小さく、
+         「ウィンドウ幅で縮小が効く前から既に小さい」状態になっていた。
+         ボタンと同じ基準(30px)から始まり、下の@mediaで同じタイミング
+         (600px)一緒に縮小されるよう、ここで明示的にボタンと揃えておく。 */
+      #OBNIZ_OUTPUT [id^="obniz_label_"]{
+        font-size: 30px !important;
+      }
       @media (max-width: 600px) {
         #OBNIZ_OUTPUT button{
           font-size: 15px !important;
