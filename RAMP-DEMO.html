@@ -1380,8 +1380,9 @@ if (PANEL_MODE) {
         const outW = obnizOutputEl.offsetWidth;
         const outH = obnizOutputEl.offsetHeight;
         if (outW <= 0 || outH <= 0) return;
-        // ★修正: 「少し大きく」との要望を受け、幅の取り分を1/3→1/2.4に増やした
-        let iw = outW / 2.4;
+        // ★修正: 実機確認で「もう少し大きく」との要望を受け、
+        // 幅の取り分を1/3→1/2.4→1/1.8にさらに増やした
+        let iw = outW / 1.8;
         let ih = iw * (370 / 148);
         if (ih > outH) {
           ih = outH;
@@ -2029,7 +2030,11 @@ async function moveLR(delta, speedValue, playFreq) {
         obniz.display.print('！なげます！')
         DISP.setText(PANEL_MODE ? msg_PIT : (String(COLOR) + msg_PIT));
 
-        speak(msg_PIT);
+        // ★修正: 表示用のmsg_PIT("！なげます！")をそのまま読み上げると、
+        // 環境によっては「！」が「かんたんふ」等と発声されてしまうため、
+        // 読み上げ用だけ「！」を除いた文字列にする(voi_H100等、他の
+        // 読み上げ専用文言が「！」を含まないのと同じ考え方)。
+        speak(msg_PIT.replace(/！/g, ''));
         await ObnizUI.Util.wait(700);
 
         // ★修正【p=0レイアウト崩れ対策】: 以前はここで一旦 DISP.setText(' ')
