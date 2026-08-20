@@ -304,6 +304,30 @@
         cursor:pointer;
       }
       body.lightweight-ui #OBNIZ_OUTPUT .btn.btn-primary:active{ background:#0062cc; border-color:#005cbf; }
+
+      /* ============================================================
+         ★追加【p=0・スマホ幅対策】: 標準UI(p=0)は本物のobniz-parts-kits
+         (ボタンfont-size:30px固定・折り返し無し)をそのまま使っているため、
+         スマホ等の狭い画面では文字がボタン枠からはみ出して見切れていた
+         （「いちばんうえ」→「いちばんう」等）。外部ライブラリのソースには
+         手を入れられないので、レンダリングされた実DOM(#OBNIZ_OUTPUT配下の
+         button/ラベル)を対象にCSSで上書きする。obniz-parts-kits側は
+         インラインstyleで font-size 等を指定してくるため、!importantで
+         上書きする必要がある。 */
+      @media (max-width: 600px) {
+        #OBNIZ_OUTPUT button{
+          font-size: 15px !important;
+          white-space: normal !important;
+          word-break: break-word;
+          line-height: 1.25 !important;
+          padding: 4px !important;
+        }
+        #OBNIZ_OUTPUT [id^="obniz_label_"]{
+          font-size: 15px !important;
+          white-space: normal !important;
+          word-break: break-word;
+        }
+      }
     </style>
 
     <style>
@@ -1356,7 +1380,8 @@ if (PANEL_MODE) {
         const outW = obnizOutputEl.offsetWidth;
         const outH = obnizOutputEl.offsetHeight;
         if (outW <= 0 || outH <= 0) return;
-        let iw = outW / 3;
+        // ★修正: 「少し大きく」との要望を受け、幅の取り分を1/3→1/2.4に増やした
+        let iw = outW / 2.4;
         let ih = iw * (370 / 148);
         if (ih > outH) {
           ih = outH;
@@ -2024,6 +2049,21 @@ async function moveLR(delta, speedValue, playFreq) {
         if (PANEL_MODE) {
           const infoPanelEl = document.getElementById('infoPanel');
           if (infoPanelEl) infoPanelEl.classList.add('pit-anim');
+        } else {
+          // ★追加【p=0・スマホ対策】: なげるアニメ(全角スペースで作る
+          // 横移動演出)は1行に収まる前提の文字数計算をしているため、
+          // ラベルの実フォントサイズのままだと狭い画面で折り返して
+          // 2段になり崩れて見えていた。OBNIZ_OUTPUT自体の実幅から
+          // 収まるフォントサイズを計算し、演出中だけ縮小する
+          // (p=1の--pit-fontと同じ考え方)。
+          const dispElForPit = document.getElementById('obniz_label_' + DISP.no);
+          const obnizOutputElForPit = document.getElementById('OBNIZ_OUTPUT');
+          if (dispElForPit && obnizOutputElForPit) {
+            const availW = obnizOutputElForPit.clientWidth || 300;
+            const pitFontSize = Math.max(8, Math.min(24, availW / 24));
+            dispElForPit.style.fontSize = pitFontSize + 'px';
+            dispElForPit.style.whiteSpace = 'nowrap';
+          }
         }
         // ★修正: ○も2倍サイズに、移動幅(leading/trailing)を2倍に拡大。
         // 空行(<br>)を2つ入れることで、たかさ表示位置の2行下へ表示位置をずらす。
@@ -2076,6 +2116,14 @@ async function moveLR(delta, speedValue, playFreq) {
         if (PANEL_MODE) {
           const infoPanelEl2 = document.getElementById('infoPanel');
           if (infoPanelEl2) infoPanelEl2.classList.remove('pit-anim');
+        } else {
+          // ★追加【p=0・スマホ対策・続き】: 演出中だけ縮小したフォントサイズを
+          // 元に戻す(空にして、外部ライブラリ本来のスタイルに戻す)。
+          const dispElForPit2 = document.getElementById('obniz_label_' + DISP.no);
+          if (dispElForPit2) {
+            dispElForPit2.style.fontSize = '';
+            dispElForPit2.style.whiteSpace = '';
+          }
         }
         await pos_set();
         await CF();
