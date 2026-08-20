@@ -8,6 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 本体は単一HTMLファイル **`RAMP-DEMO.html`** で完結する（ビルド工程なし、依存パッケージのインストールも不要）。操作パネルの横に、たかさ・方向を示すゲージ状イラスト（`#illustStage`）を表示する機能を含む（`p=0`/`p=1`両対応。実装の経緯は`docs/ramp-illustration-poc.md`を参照）。**`RAMP-ILLUSTRATION-POC.html`もデモ用として存在するが、`d=0`実機動作の確認が済むまでは「一旦フィックスした」時点（コミット`f28d58c`相当）に固定し、`RAMP-DEMO.html`とは同期させない方針**（詳細は「既知の残タスク」参照）。
 
+**チェックポイント（2026-08-20版・一旦フィックス）**: コミット`d5d9b37`時点。実機(`d=0`)での基本動作、`id`パラメータによる実機ID一時指定、スマホ実機（`p=0`、Safari）でのレイアウト・読み上げ・二重タブガードまで一通り確認済み。以降の変更はこの版をベースに進める。
+
 ## 動作確認・デプロイ
 
 - ビルド/lint/testの仕組みは存在しない。`RAMP-DEMO.html` をそのままブラウザで開くか、GitHub Pagesで公開したURLにアクセスして動作確認する。
@@ -74,9 +76,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 既知の残タスク
 
-- `d=0`（実機モード）＋`p=1`/`p=0`それぞれの、実機・実ネットワーク環境での最終動作確認が未実施
+- `d=0`（実機モード）の基本動作は実機で確認済み（`id`パラメータでの一時ID指定含む）。`p=1`（PC）・`p=0`（スマホSafari、デモモードでの表示確認）についても一通り確認済み。ただし`d=0`＋`p=0`の実機・実ネットワーク環境での組み合わせ確認は依然未実施
 - 左右位置のEEPROM保存・復元ロジックの妥当性再確認（高さほど手厚く検証されていない）
-- なげるギミックの`pit-anim`オーバーレイの見た目を実機画面で最終確認
+- なげるギミックの`pit-anim`オーバーレイの見た目を実機画面で最終確認（PCでは確認済み・良好）
 - `RS`（ランプサイズ S/L）パラメータの`p=1`（△パネルUI）での動作検証
 - `p=0`用外部ライブラリのvendoring検討
 - `main`ブランチへのマージ（現状`claude/online-boccia-robot-lamp-grtof1`ブランチのみで運用中）
