@@ -1487,8 +1487,19 @@ obniz.onconnect = async function () {
 
 // 音声読み上げ function ----------------------------------------------------------------------------------
 
+    // ★修正【スマホで読み上げが無音になる対策】: SpeechSynthesisUtteranceを
+    // ローカル変数のまま作ると、発声中にガベージコレクションされて途中で
+    // 無音になる既知のブラウザ不具合がある(モバイルほど発生しやすい)。
+    // speak()関数の外側(main()スコープ)の変数に保持し続けることで、
+    // 発声が終わるまで参照が残るようにする。
+    // また、直前の発声が何らかの理由でキューに残ったままだと以降の
+    // speak()が無音のまま無視されることがあるため、話す前に必ず
+    // cancel()してキューをクリアしておく。
+    let _lastUtterance = null;
     function speak(text) {
+      speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
+      _lastUtterance = utterance;
 
       if (LG === 'J') {
       utterance.lang = 'ja-JP';
