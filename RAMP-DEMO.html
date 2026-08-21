@@ -986,6 +986,26 @@ if (DEMO_MODE) {
     // ★修正【フランス語体験対応】: 以前は日本語固定の文言をHTMLに直書き
     // していたが、lgがJ以外(フランス語)の時は表示も切り替える。
     banner.textContent = (LG === 'J') ? 'デモモード：操作確認のみ' : 'Mode démo : vérification uniquement';
+
+    // ★追加: 訪問者カウンター（公開デモ用・d=1限定）
+    // 公開先(online-boccia.github.io)で、かつデモモード(d=1、この
+    // if(DEMO_MODE)ブロック自体がd=1限定)の時だけ表示・カウントする。
+    // 開発用URL(ishi0630.github.io)での動作確認はカウントに含めない。
+    // 第三者サービス(komarev.com/ghpvc、GitHubプロフィールでも広く
+    // 使われている実績のあるアクセスカウンター)の画像バッジを埋め込む
+    // だけの実装(このアプリ自体のロジックには影響しない)。
+    // ★注意: document.body直下に追加すると、p=1では.wrap
+    // (position:fixed;inset:0;z-index:9000)の裏に隠れてしまう。
+    // デモバナー(banner)自体は後続の処理でp=1時に.wrap内側へ正しく
+    // 移動されるため、その子要素として追加することで同じ扱いにする。
+    if (location.hostname === 'online-boccia.github.io') {
+      const counterImg = document.createElement('img');
+      counterImg.src = 'https://komarev.com/ghpvc/?username=online-boccia-ramp-demo&label=visitors&color=1f5c73&style=flat';
+      counterImg.alt = 'visitor count';
+      counterImg.style.cssText = 'display:block;margin:6px auto 0;';
+      counterImg.referrerPolicy = 'no-referrer';
+      banner.appendChild(counterImg);
+    }
   }
 }
 
