@@ -1751,6 +1751,17 @@ obniz.onconnect = async function () {
       if (PANEL_MODE) {
         return [oldLabel, oldVal, '\n', '↓', '\n', newLabel, newVal, limitMsg].join('');
       } else {
+        // ★修正【p=0・幅対策】: 既に限界値に達していて実質移動しなかった
+        // 場合(oldLabel/oldValとnewLabel/newValが同じ)、従来は
+        // "à gauche 100 --> à gauche 100 Limite"のように同じ値を2回
+        // 表示する冗長な文言になり、フランス語等の長い文字列で折り返る
+        // 原因にもなっていた。実際に「到達した」遷移(oldとnewが異なる)の
+        // 場合は従来通り遷移を表示しつつ、既に限界のまま動かなかった
+        // 場合だけ現在値+Limiteのみのシンプルな表示にする(たかさ100/
+        // みぎ100等、どの値の限界かは維持する)。
+        if (limitMsg && oldLabel === newLabel && oldVal === newVal) {
+          return [COLOR, newLabel, newVal, limitMsg].join('');
+        }
         return [COLOR, oldLabel, oldVal, ' --> ', newLabel, newVal, limitMsg].join('');
       }
     }
