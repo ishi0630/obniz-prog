@@ -402,6 +402,10 @@
         background:#fff;
         display:flex;
         flex-direction:column;
+        /* ★追加: 何らかの理由で中身が画面高さより大きくなった場合でも、
+           ボタン等が画面外に切れて操作不能になるより、.wrap自身の中で
+           スクロールできる方が安全（保険的な設定）。 */
+        overflow-y:auto;
       }
       /* ★修正: パネルは上下中央(align-items:center)に配置していたが、
          画面の上寄りに置くよう変更(align-items:flex-start)。 */
@@ -1229,6 +1233,32 @@ if (PANEL_MODE) {
     const stageEl = document.getElementById('contentRow');
     if (wrapEl && bannerEl && stageEl) {
       wrapEl.insertBefore(bannerEl, stageEl);
+    }
+  })();
+
+  // ========================================
+  // ★追加【スマホでボタン下端が画面外に切れる対策】: .wrapはposition:fixed;
+  // inset:0で画面全体を覆う想定だが、モバイルブラウザ(特にアプリ内蔵
+  // ブラウザ等)ではアドレスバーの表示/非表示でレイアウトビューポートと
+  // 実際に見えている範囲(visual viewport)がズレることがあり、inset:0が
+  // 実際より大きい高さを取ってしまい、その中の要素(パネル下段のボタン等)
+  // が画面外にはみ出して見える不具合があった。window.visualViewportが
+  // 使える環境では、それを使って.wrapの高さを実際に見えている高さに
+  // 明示的に合わせる。
+  (function () {
+    const wrapElForHeight = document.getElementById('customPanelWrap');
+    function fitWrapHeight() {
+      if (!wrapElForHeight) return;
+      const vv = window.visualViewport;
+      const h = vv ? vv.height : window.innerHeight;
+      wrapElForHeight.style.height = h + 'px';
+    }
+    fitWrapHeight();
+    window.addEventListener('resize', fitWrapHeight);
+    window.addEventListener('orientationchange', fitWrapHeight);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', fitWrapHeight);
+      window.visualViewport.addEventListener('scroll', fitWrapHeight);
     }
   })();
 
