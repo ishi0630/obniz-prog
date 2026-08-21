@@ -815,9 +815,9 @@
         <g font-size="12" fill="#1f5c73" font-family="sans-serif" text-anchor="middle">
           <text x="100" y="248">0</text>
           <text x="155" y="329">100</text>
-          <text x="155" y="353">みぎ</text>
+          <text id="illustDirectionLabelR" x="155" y="353">みぎ</text>
           <text x="45" y="329">100</text>
-          <text x="45" y="353">ひだり</text>
+          <text id="illustDirectionLabelL" x="45" y="353">ひだり</text>
         </g>
         <!-- 針。楕円の縁(目盛りの点)に先端が触れるよう、回転(角度)だけでなく
              長さも一緒に滑らかに変化させる。JS: updateIllustLR()が
@@ -877,8 +877,15 @@ const _tabLockAt = _tabLockRaw ? Number(_tabLockRaw) : NaN;
 const _tabLockFresh = !isNaN(_tabLockAt) && (Date.now() - _tabLockAt) < TAB_STALE_MS;
 
 if (_tabLockFresh) {
+  // ★修正【フランス語体験対応】: この時点ではまだLG(表示言語)の解析前
+  // だが、lgパラメータだけをその場で直接読み取り、日本語以外なら
+  // フランス語表示にする(常に日本語固定だったのを修正)。
+  const _tabLockLg = (new URLSearchParams(location.search).get('lg') || 'J').toUpperCase();
+  const _tabLockMsg = (_tabLockLg === 'J')
+    ? 'このタブはすでに起動中です'
+    : 'Cet onglet est déjà en cours d’exécution';
   document.body.innerHTML =
-    "<h3 style='text-align:center;margin-top:40vh;'>このタブはすでに起動中です</h3>";
+    "<h3 style='text-align:center;margin-top:40vh;'>" + _tabLockMsg + "</h3>";
   throw new Error("Blocked: duplicate tab");
 }
 
@@ -900,7 +907,9 @@ window.addEventListener("pagehide", () => {
 //   rn : ランプ番号 (1 or 2)              ※実機のobniz ID切り替え。省略時=1
 //   rs : ランプサイズ (S or L)            ※ステップ数計算の係数切り替え。省略時=S
 //   lg : 表示言語 (J=日本語 / それ以外=フランス語)。省略時=J
-//        ★注意: d=1(デモモード)の時は、lg指定に関わらず常にJ(日本語)固定
+//        ★修正: 以前はd=1(デモモード)時にlg指定を無視し常に日本語固定
+//        だったが、実機なしでもフランス語表示を確認・デモできるよう、
+//        d(DEMO_MODE)に関わらずlgパラメータをそのまま反映するようにした
 //   d  : ★追加 デモモード (1=obniz実機なしでシミュレーション動作 / 0=実機接続)。省略時=0(実機モード)
 //   p  : ★追加 操作パネル (1=△の大きいボタンパネルUI / 0=標準の小ボタンUI)。省略時=0(標準UI)
 //   id : ★追加 obniz device ID (8桁の数字)。省略時・不正な値の場合はダミーID
@@ -954,17 +963,25 @@ document.documentElement.style.setProperty('--ramp-color', RN === 1 ? '#cc2b2b' 
 const DEMO_MODE = getParam("d", "0") === "1";   // ★追加: 省略時のデフォルトは実機モード
 const PANEL_MODE = getParam("p", "0") === "1";  // ★変更: 省略時のデフォルトを標準UI(0)に
 
-// ★追加: デモモード時は lg パラメータの指定を無視し、常に日本語(J)にする
+// ★修正【フランス語体験対応】: 以前はデモモード時にlgパラメータの指定を
+// 無視し常に日本語(J)固定にしていたが、実機なしでもフランス語表示を
+// 確認・デモできるようにするため、d(DEMO_MODE)に関わらずlgパラメータを
+// 直接反映するように変更した。
 // ★修正: lgパラメータの大文字小文字を区別しないようにする
 // （"j"のような小文字指定が"J"と一致せずフランス語側に落ちていたバグを修正）
-const LG = (DEMO_MODE ? "J" : getParam("lg", "J")).toUpperCase();
+const LG = getParam("lg", "J").toUpperCase();
 
 // ========================================
 // ★追加: デモモード表示バナーの出し分け
 // ========================================
 if (DEMO_MODE) {
   const banner = document.getElementById('demoModeBanner');
-  if (banner) banner.style.display = 'block';
+  if (banner) {
+    banner.style.display = 'block';
+    // ★修正【フランス語体験対応】: 以前は日本語固定の文言をHTMLに直書き
+    // していたが、lgがJ以外(フランス語)の時は表示も切り替える。
+    banner.textContent = (LG === 'J') ? 'デモモード：操作確認のみ' : 'Mode démo : vérification uniquement';
+  }
 }
 
 // ========================================
@@ -1167,17 +1184,20 @@ class FakeObniz {
       } else {
 
       msg_TXT = "- ONLINE BOCCIA -";
-      msg_L = " à gauch ";
+      msg_L = " à gauche ";
       msg_R = " à droite ";
       msg_PIT = 'Lancer';
       msg_H = 'Hauteur ' ;
       msg_H100 = ' en mouvement[100]';
       msg_H50 = ' en mouvement[50]';
+      msg_H0 = ' en mouvement[0]';
       msg_H100_2 = ' Le maximum 100';
       msg_H50_2 = ' La moitié 50';
+      msg_H0_2 = ' Le minimum 0';
       msg_LM = ' Limite';
       voi_H100 = ' Le maximum';
       voi_H50 = ' La moitié';
+      voi_H0 = ' Le minimum';
       msg_inp = ' Opé !';
       msg_WT = ' Attends !';
 
@@ -1191,9 +1211,22 @@ class FakeObniz {
       btn_R = '→';
       btn_LL = '←←';
       btn_RR = '→→';
-      btn_H0 = 'Milieu 0';
+      // ★修正: btn_H0(高さ0＝いちばんした)が誤って"Milieu 0"(=真ん中0)に
+      // なっていた(btn_H50の"Milieu 50"と紛らわしい取り違えバグ)。
+      // btn_H100="Haut 100"(上)と対になる「下」を表す"Bas 0"に修正。
+      btn_H0 = 'Bas 0';
       btn_H50 = 'Milieu 50';
     }
+
+// ★追加【フランス語体験対応】: 方向ゲージ(#illustStage内SVG)の「ひだり」
+// 「みぎ」ラベルはHTMLに直書きの固定文字列で、lgに関わらず常に日本語の
+// ままだったため、LGに応じて出し分けるようにする。
+(function () {
+  const labelL = document.getElementById('illustDirectionLabelL');
+  const labelR = document.getElementById('illustDirectionLabelR');
+  if (labelL) labelL.textContent = (LG === 'J') ? 'ひだり' : 'Gauche';
+  if (labelR) labelR.textContent = (LG === 'J') ? 'みぎ' : 'Droite';
+})();
 
 // ★【修正箇所】UI増殖バグ対策：UI生成をonconnectの外（1度しか走らない場所）に移動
 let DISP = new ObnizUI.Label('label');
