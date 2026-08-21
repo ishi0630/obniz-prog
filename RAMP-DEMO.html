@@ -364,8 +364,13 @@
         }
         #OBNIZ_OUTPUT [id^="obniz_label_"]{
           font-size: 15px !important;
-          white-space: normal !important;
-          word-break: break-word;
+          /* ★修正【フランス語体験対応】: white-space:normal(折り返し許可)
+             だったが、JS側(fitDispFont)で実際の文字幅を測って1行に
+             収まるようフォントサイズを自動縮小する方式に変更したため、
+             ここではnowrap(折り返し禁止)にする。normal!importantのまま
+             だとJSのwhite-space:nowrap指定と競合し、縮小してもなお
+             折り返ってしまうため。 */
+          white-space: nowrap !important;
         }
       }
     </style>
@@ -1529,6 +1534,49 @@ if (PANEL_MODE) {
         requestAnimationFrame(fitIllustToStandardUI);
       });
       outputObserver.observe(obnizOutputEl, { childList: true, subtree: true });
+
+      // ★追加【フランス語体験対応・メッセージ幅対策】: 上部メッセージ
+      // (「たかさ...OK!」/フランス語だと"à gauche 100 --> ..."のように
+      // 長くなる)が、狭い画面向けの@media font-sizeだけでは収まらず
+      // 2行に折り返ってしまうケースがあったため、実際の文字幅を測って
+      // 都度フォントサイズを自動縮小する(p=1のパネルタイトルと同じ考え方)。
+      // white-space:nowrapにして常に1行に収める。
+      const dispElForFit = document.getElementById('obniz_label_' + DISP.no);
+      if (dispElForFit) {
+        dispElForFit.style.whiteSpace = 'nowrap';
+        dispElForFit.style.overflow = 'hidden';
+        let lastDispText = null;
+        const fitDispFont = function () {
+          const el = dispElForFit;
+          const availW = obnizOutputEl.clientWidth -
+            (parseFloat(getComputedStyle(obnizOutputEl).paddingLeft) || 0) -
+            (parseFloat(getComputedStyle(obnizOutputEl).paddingRight) || 0);
+          if (availW <= 0) return;
+          // @mediaで設定された基準サイズ(狭い画面なら15px、それ以外は
+          // ライブラリ既定値)をベースに、そこから収まる分だけ縮小する。
+          // el.style.fontSizeを一旦空にしてCSS由来の基準値を測る。
+          el.style.fontSize = '';
+          const baseSize = parseFloat(getComputedStyle(el).fontSize) || 15;
+          el.style.fontSize = baseSize + 'px';
+          const textW = el.scrollWidth;
+          if (textW > availW) {
+            const scaled = Math.max(8, baseSize * (availW / textW) * 0.95);
+            el.style.fontSize = scaled + 'px';
+          }
+        };
+        fitDispFont();
+        requestAnimationFrame(function () { requestAnimationFrame(fitDispFont); });
+        window.addEventListener('resize', fitDispFont);
+        window.addEventListener('orientationchange', fitDispFont);
+        // メッセージの内容が変わるたびに再計算する(高さ/左右移動・言語切替等)。
+        const dispObserver = new MutationObserver(function () {
+          if (dispElForFit.textContent !== lastDispText) {
+            lastDispText = dispElForFit.textContent;
+            fitDispFont();
+          }
+        });
+        dispObserver.observe(dispElForFit, { characterData: true, childList: true, subtree: true });
+      }
     }
   }
   illustEl.style.display = 'flex';
