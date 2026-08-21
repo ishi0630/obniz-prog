@@ -998,10 +998,14 @@ if (DEMO_MODE) {
     // (position:fixed;inset:0;z-index:9000)の裏に隠れてしまう。
     // デモバナー(banner)自体は後続の処理でp=1時に.wrap内側へ正しく
     // 移動されるため、その子要素として追加することで同じ扱いにする。
+    // ★修正: ラベルを日本語(「訪問者数」)に変更。ただしこのバッジは
+    // 外部サービス側でSVGとして生成されるため、日本語フォントに
+    // 対応していない場合、文字化け・豆腐文字になるリスクがある
+    // (実際の見た目は公開URLで確認が必要)。
     if (location.hostname === 'online-boccia.github.io') {
       const counterImg = document.createElement('img');
-      counterImg.src = 'https://komarev.com/ghpvc/?username=online-boccia-ramp-demo&label=visitors&color=1f5c73&style=flat';
-      counterImg.alt = 'visitor count';
+      counterImg.src = 'https://komarev.com/ghpvc/?username=online-boccia-ramp-demo&label=' + encodeURIComponent('訪問者数') + '&color=1f5c73&style=flat';
+      counterImg.alt = '訪問者数';
       counterImg.style.cssText = 'display:block;margin:6px auto 0;';
       counterImg.referrerPolicy = 'no-referrer';
       banner.appendChild(counterImg);
