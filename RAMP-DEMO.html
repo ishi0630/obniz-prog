@@ -1027,16 +1027,18 @@ if (DEMO_MODE) {
     // 変更した。これによりテキストはデモバナー(banner)の子要素として
     // 描画され、特別な指定をしなくても親の背景色(#fff3cd)・文字色
     // (#7a5b00)がそのまま適用される(=デモモードのバナーと同じ配色)。
-    // 第三者サービス(countapi.xyz、シンプルなカウントAPIとして広く
-    // 使われている)にfetchでアクセスするだけの実装(このアプリ自体の
+    // 第三者サービスにfetchでアクセスするだけの実装(このアプリ自体の
     // ロジックには影響しない)。取得に失敗した場合は何も表示しない。
+    // ★修正: countapi.xyzは近年サービス自体が不安定/事実上終了気味で
+    // 応答が得られなかったため、Webページの訪問回数カウント専用に
+    // 作られ現在も稼働しているAbacus(abacus.jasoncameron.dev)に変更。
     if (location.hostname === 'online-boccia.github.io') {
       const counterSpan = document.createElement('span');
       banner.appendChild(counterSpan);
-      fetch('https://api.countapi.xyz/hit/online-boccia-ramp-demo/visits')
+      fetch('https://abacus.jasoncameron.dev/hit/online-boccia-ramp-demo/visits')
         .then((r) => r.json())
         .then((data) => { counterSpan.textContent = '体験回数：' + data.value; })
-        .catch(() => { /* 失敗時は何も表示しない */ });
+        .catch((e) => { console.error('[体験回数カウンター] 取得失敗:', e); /* 画面には何も表示しない */ });
     }
   }
 }
