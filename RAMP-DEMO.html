@@ -1037,7 +1037,10 @@ if (DEMO_MODE) {
       banner.appendChild(counterSpan);
       fetch('https://abacus.jasoncameron.dev/hit/online-boccia-ramp-demo/visits')
         .then((r) => r.json())
-        .then((data) => { counterSpan.textContent = '体験回数：' + data.value; })
+        .then((data) => {
+          // ★修正【フランス語体験対応】: ラベルもLGに応じて出し分ける
+          counterSpan.textContent = (LG === 'J') ? ('体験回数：' + data.value) : ("Nombre d'essais : " + data.value);
+        })
         .catch((e) => { console.error('[体験回数カウンター] 取得失敗:', e); /* 画面には何も表示しない */ });
     }
   }
