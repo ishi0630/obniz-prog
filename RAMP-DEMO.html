@@ -528,6 +528,9 @@
         background:#fff3cd;color:#7a5b00;border:1px solid #ffe08a;
         border-radius:4px;padding:6px 12px;margin:0 0 8px 0;font-size:13px;
         text-align:center;flex:0 0 auto;
+        /* ★追加: 訪問者カウンター(画像バッジ)を、バナー文言の右側に
+           横並びで表示するため、中央揃えのflex行にする。 */
+        display:flex;align-items:center;justify-content:center;gap:8px;
       }
       .panel{
         aspect-ratio: 2 / 3; /* JS(fitPanelToWindow)が実際のpxサイズを都度上書きする。JS未実行時のフォールバック */
@@ -1001,7 +1004,11 @@ const LG = getParam("lg", "J").toUpperCase();
 if (DEMO_MODE) {
   const banner = document.getElementById('demoModeBanner');
   if (banner) {
-    banner.style.display = 'block';
+    // ★修正: 訪問者カウンターをバナー文言の右側に横並びさせるため、
+    // CSS側の.demo-banner{display:flex}が効くよう'flex'にする
+    // (以前'block'にしていたため、インラインstyleでCSSのflex指定を
+    // 上書きしてしまい横並びにならなかった)。
+    banner.style.display = 'flex';
     // ★修正【フランス語体験対応】: 以前は日本語固定の文言をHTMLに直書き
     // していたが、lgがJ以外(フランス語)の時は表示も切り替える。
     banner.textContent = (LG === 'J') ? 'デモモード：操作確認のみ' : 'Mode démo : vérification uniquement';
@@ -1021,11 +1028,17 @@ if (DEMO_MODE) {
     // 外部サービス側でSVGとして生成されるため、日本語フォントに
     // 対応していない場合、文字化け・豆腐文字になるリスクがある
     // (実際の見た目は公開URLで確認が必要)。
+    // ★修正【カウント数字が表示されない不具合対策】: komarev.com/ghpvc
+    // はGitHubプロフィール閲覧数向けのサービスで、GitHub以外の任意の
+    // サイト用途では数字部分が表示されないことがあった。任意のWebサイト
+    // の訪問者カウント用に作られたvisitor-badge.laobi.icuに変更する。
+    // ★修正: バナー文言の右側に横並びさせるため、display:blockではなく
+    // インライン表示にする(margin:autoでの中央寄せは不要になった)。
     if (location.hostname === 'online-boccia.github.io') {
       const counterImg = document.createElement('img');
-      counterImg.src = 'https://komarev.com/ghpvc/?username=online-boccia-ramp-demo&label=' + encodeURIComponent('訪問者数') + '&color=1f5c73&style=flat';
+      counterImg.src = 'https://visitor-badge.laobi.icu/badge?page_id=online-boccia.ramp-demo&left_text=' + encodeURIComponent('訪問者数');
       counterImg.alt = '訪問者数';
-      counterImg.style.cssText = 'display:block;margin:6px auto 0;';
+      counterImg.style.cssText = 'display:inline-block;vertical-align:middle;';
       counterImg.referrerPolicy = 'no-referrer';
       banner.appendChild(counterImg);
     }
