@@ -773,18 +773,24 @@
              目盛り線を中央の棒からは切り離し、数字のすぐ左に移動した
              (棒を貫通する飾りではなく、数字の一部として見えるように)。 -->
         <line x1="90" y1="45" x2="90" y2="185" stroke="#1f5c73" stroke-width="4" stroke-linecap="round"/>
-        <g stroke="#1f5c73" stroke-width="2" font-size="11" fill="#1f5c73" font-family="sans-serif">
-          <line x1="106" y1="45" x2="114" y2="45"/><text x="116" y="49">100</text>
+        <!-- ★修正【文字を大きく・100表示考慮】: 目盛り数字が小さく読み
+             づらかったため11px→14pxに拡大。ただし3桁の「100」だけ幅が
+             広いため、拡大後もviewBox右端(x=171)まで収まるか確認した上で
+             (実測、はみ出しなし)、他の数字と同じ左端x=116に揃えたまま
+             にしている。縦位置は文字が大きくなった分、目盛り線との
+             センターずれをわずかに補正(+4→+5)。 -->
+        <g stroke="#1f5c73" stroke-width="2" font-size="14" fill="#1f5c73" font-family="sans-serif">
+          <line x1="106" y1="45" x2="114" y2="45"/><text x="116" y="50">100</text>
           <line x1="106" y1="59" x2="114" y2="59"/>
-          <line x1="106" y1="73" x2="114" y2="73"/><text x="116" y="77">80</text>
+          <line x1="106" y1="73" x2="114" y2="73"/><text x="116" y="78">80</text>
           <line x1="106" y1="87" x2="114" y2="87"/>
-          <line x1="106" y1="101" x2="114" y2="101"/><text x="116" y="105">60</text>
+          <line x1="106" y1="101" x2="114" y2="101"/><text x="116" y="106">60</text>
           <line x1="106" y1="115" x2="114" y2="115"/>
-          <line x1="106" y1="129" x2="114" y2="129"/><text x="116" y="133">40</text>
+          <line x1="106" y1="129" x2="114" y2="129"/><text x="116" y="134">40</text>
           <line x1="106" y1="143" x2="114" y2="143"/>
-          <line x1="106" y1="157" x2="114" y2="157"/><text x="116" y="161">20</text>
+          <line x1="106" y1="157" x2="114" y2="157"/><text x="116" y="162">20</text>
           <line x1="106" y1="171" x2="114" y2="171"/>
-          <line x1="106" y1="185" x2="114" y2="185"/><text x="116" y="189">0</text>
+          <line x1="106" y1="185" x2="114" y2="185"/><text x="116" y="190">0</text>
         </g>
         <!-- ボール(高さに応じてtranslateYで移動。JS: updateIllustHeight()) -->
         <!-- ★再修正: SVG<text>のdominant-baselineによる絵文字中央揃えは
@@ -839,12 +845,20 @@
         </g>
         <!-- ★修正: 「100」ラベルを、真横(同じ高さ)の点(v=100/-100)に
              揃えて配置。みぎ/ひだりのラベルもその真下に揃えて配置。 -->
-        <g font-size="12" fill="#1f5c73" font-family="sans-serif" text-anchor="middle">
-          <text x="100" y="248">0</text>
-          <text x="155" y="329">100</text>
-          <text id="illustDirectionLabelR" x="155" y="353">みぎ</text>
-          <text x="45" y="329">100</text>
-          <text id="illustDirectionLabelL" x="45" y="353">ひだり</text>
+        <!-- ★修正【文字を大きく・100表示考慮】: 数字ラベル(0/100)は
+             12px→14pxに拡大。ただし「100」はviewBox右端(x=171)・
+             左端(x=23)に近い位置(x=155/45)にあり、そのまま拡大すると
+             はみ出す恐れがあったため、実測(getBBox)で余裕を確認した上で
+             サイズを決めた。みぎ/ひだり(フランス語だとGauche/Droiteで
+             さらに幅が広い)は今回の対象外のため、従来通り12pxのまま
+             個別指定して据え置く(このg全体のfont-sizeは廃止し、
+             text要素ごとに指定する形に変更)。 -->
+        <g fill="#1f5c73" font-family="sans-serif" text-anchor="middle">
+          <text x="100" y="248" font-size="14">0</text>
+          <text x="155" y="330" font-size="14">100</text>
+          <text id="illustDirectionLabelR" x="155" y="353" font-size="12">みぎ</text>
+          <text x="45" y="330" font-size="14">100</text>
+          <text id="illustDirectionLabelL" x="45" y="353" font-size="12">ひだり</text>
         </g>
         <!-- 針。楕円の縁(目盛りの点)に先端が触れるよう、回転(角度)だけでなく
              長さも一緒に滑らかに変化させる。JS: updateIllustLR()が
