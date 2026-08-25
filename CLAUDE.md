@@ -33,6 +33,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `d`  | デモモード(1=シミュレーション / 0=実機接続) | `0`（**このデフォルトは変更しない方針**。デモ配布時はURL側で`?d=1`を付ける運用） |
 | `p`  | 操作パネル(1=△の大きいボタンパネルUI / 0=標準の小ボタンUI) | `0` |
 | `id` | obniz device ID（8桁の数字。ハイフン・空白は自動除去）。**RAMP-DEMO.htmlのみ対応**（`RAMP-ILLUSTRATION-POC.html`には未反映） | `00000000`（8桁数字以外は全て安全側でこのダミーIDにフォールバック。実機確認時にURL側でその場限り指定する用途。**コードに実IDを書き込まないこと**） |
+| `m`  | パネル左のメーター（たかさ・方向ゲージ、`#illustStage`）表示(1=非表示 / それ以外=表示)。`DEMO_MODE`/`PANEL_MODE`/`LG`いずれとも独立した表示オプション。**RAMP-DEMO.htmlのみ対応**（`RAMP-ILLUSTRATION-POC.html`には未反映） | `0`（表示。従来通りの見た目） |
 
 ## アーキテクチャ
 

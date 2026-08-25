@@ -998,6 +998,12 @@ const PANEL_MODE = getParam("p", "0") === "1";  // ★変更: 省略時のデフ
 // （"j"のような小文字指定が"J"と一致せずフランス語側に落ちていたバグを修正）
 const LG = getParam("lg", "J").toUpperCase();
 
+// ★追加: パネル左のメーター(たかさ・方向ゲージ、#illustStage)表示の
+// オン/オフ。m=1で非表示、省略時(m=0と同様)は従来通り表示する。
+// DEMO_MODE/PANEL_MODEどちらとも独立した表示上のオプションなので、
+// 分岐はイラスト配置箇所(main()内、illustStageのDOM移動処理)のみに閉じる。
+const M = getParam("m", "0") === "1";
+
 // ========================================
 // ★追加: デモモード表示バナーの出し分け
 // ========================================
@@ -1395,7 +1401,10 @@ if (PANEL_MODE) {
       // ウィンドウ幅を変えても間隔は一定のまま。
       const illustStageEl = document.getElementById('illustStage');
       const contentRowEl = document.getElementById('contentRow');
-      if (illustStageEl && contentRowEl) {
+      // ★追加: m=1の時はillustStageをcontentRowに配置していないため、
+      // ここでのサイズ計算自体が不要(無駄な処理を避けるだけで、
+      // 動作上はillustStageEl && contentRowElの判定だけでも実害はない)。
+      if (illustStageEl && contentRowEl && !M) {
         const rowCs = getComputedStyle(contentRowEl);
         const gapPx = parseFloat(rowCs.columnGap || rowCs.gap) || 0;
         const rowW = contentRowEl.clientWidth;
@@ -1538,6 +1547,12 @@ if (PANEL_MODE) {
 (function () {
   const illustEl = document.getElementById('illustStage');
   if (!illustEl) return;
+  // ★追加: m=1の時はメーター(illustStage)を配置・表示しない。
+  // 元のHTML上の位置(neutral、display:none)のまま何もしないだけなので、
+  // contentRow/standard-illust-row側のレイアウトにも影響しない
+  // (p=1ならpanel-stageがcontent-rowの唯一のflex子として自然に幅いっぱいに
+  // 広がる。p=0ならstandard-illust-row自体を作らずOBNIZ_OUTPUTを従来位置のまま)。
+  if (M) return;
   if (PANEL_MODE) {
     const contentRowEl = document.getElementById('contentRow');
     const panelStageEl = document.getElementById('panelStage');
