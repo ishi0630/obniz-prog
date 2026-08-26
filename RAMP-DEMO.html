@@ -711,6 +711,22 @@
     <h3 id="bploading" style="text-align:center;">LOADING...</h3>
 
     <!-- ============================================================
+         ★追加【プレビュー】: メーター(#illustStage)表示/非表示のラジオ
+         ボタン。d(実機/デモ)には依存せず常に効く(#illustStageの表示
+         切替はDOM表示のON/OFFのみで、obniz接続状態と無関係なため)。
+         p=0/p=1どちらでも同じ場所(bploadingの直後、パネル/標準UIより上)
+         に置く。
+         ============================================================ -->
+    <div id="meterToggleRow" style="text-align:center; margin:0 0 8px; font-size:13px;">
+      <label style="margin-right:12px; cursor:pointer;">
+        <input type="radio" name="meterToggle" id="meterToggleShow" checked> メーター表示
+      </label>
+      <label style="cursor:pointer;">
+        <input type="radio" name="meterToggle" id="meterToggleHide"> メーター非表示
+      </label>
+    </div>
+
+    <!-- ============================================================
          ★追加: △パターン操作パネル（p=1 の時のみ表示。JSで表示/移動する）
          ============================================================ -->
     <div class="wrap" id="customPanelWrap" style="display:none;">
@@ -1348,6 +1364,19 @@ if (PANEL_MODE) {
     }
   })();
 
+  // ★追加【メーター表示ラジオボタン(プレビュー)対応】: デモバナーと同じ
+  // 理由(.wrapのposition:fixed;inset:0オーバーレイの裏に隠れる)で、
+  // メーター表示切替のラジオボタン行も.wrapの内側(contentRowより前)へ
+  // 移動する。
+  (function () {
+    const wrapEl = document.getElementById('customPanelWrap');
+    const toggleRowEl = document.getElementById('meterToggleRow');
+    const stageEl = document.getElementById('contentRow');
+    if (wrapEl && toggleRowEl && stageEl) {
+      wrapEl.insertBefore(toggleRowEl, stageEl);
+    }
+  })();
+
   // ========================================
   // ★追加【スマホでボタン下端が画面外に切れる対策】: .wrapはposition:fixed;
   // inset:0で画面全体を覆う想定だが、モバイルブラウザ(特にアプリ内蔵
@@ -1414,10 +1443,13 @@ if (PANEL_MODE) {
       // ウィンドウ幅を変えても間隔は一定のまま。
       const illustStageEl = document.getElementById('illustStage');
       const contentRowEl = document.getElementById('contentRow');
-      // ★追加: m=1の時はillustStageをcontentRowに配置していないため、
-      // ここでのサイズ計算自体が不要(無駄な処理を避けるだけで、
-      // 動作上はillustStageEl && contentRowElの判定だけでも実害はない)。
-      if (illustStageEl && contentRowEl && !M) {
+      // ★修正【メーター表示ラジオボタン(プレビュー)対応】: 以前は
+      // m=1の時はillustStageをcontentRowに配置していなかったが、
+      // ラジオボタンでその場から表示/非表示を切り替えられるように
+      // するため、配置自体は常に行い(表示状態はdisplay:none/flexだけで
+      // 制御する)、サイズ計算も常に実行する(非表示中でも次に表示に
+      // 切り替えた時に正しいサイズになっているように)。
+      if (illustStageEl && contentRowEl) {
         const rowCs = getComputedStyle(contentRowEl);
         const gapPx = parseFloat(rowCs.columnGap || rowCs.gap) || 0;
         const rowW = contentRowEl.clientWidth;
@@ -1560,12 +1592,15 @@ if (PANEL_MODE) {
 (function () {
   const illustEl = document.getElementById('illustStage');
   if (!illustEl) return;
-  // ★追加: m=1の時はメーター(illustStage)を配置・表示しない。
-  // 元のHTML上の位置(neutral、display:none)のまま何もしないだけなので、
-  // contentRow/standard-illust-row側のレイアウトにも影響しない
-  // (p=1ならpanel-stageがcontent-rowの唯一のflex子として自然に幅いっぱいに
-  // 広がる。p=0ならstandard-illust-row自体を作らずOBNIZ_OUTPUTを従来位置のまま)。
-  if (M) return;
+  // ★修正【メーター表示ラジオボタン(プレビュー)対応】: 以前はm=1の時は
+  // ここで即returnし、illustStageを元のHTML上の位置(neutral、
+  // display:none)のまま動かさないことで「配置しない」を実現していたが、
+  // 画面上のラジオボタンでその場から表示/非表示を切り替えられるように
+  // するため、配置自体は常に行う(m=1かどうかは末尾のdisplay設定でのみ
+  // 使う)。非表示中でも、contentRow/standard-illust-row側のレイアウトは
+  // illustStageがdisplay:noneのflex子になるだけなので、以前の「配置しない」
+  // 時と見た目上は変わらない(panel-stage/OBNIZ_OUTPUTが自然に幅いっぱいに
+  // 広がる)。
   if (PANEL_MODE) {
     const contentRowEl = document.getElementById('contentRow');
     const panelStageEl = document.getElementById('panelStage');
@@ -1662,7 +1697,35 @@ if (PANEL_MODE) {
       }
     }
   }
-  illustEl.style.display = 'flex';
+  // ★修正【メーター表示ラジオボタン(プレビュー)対応】: 初期表示状態は
+  // 従来通りURLパラメータm(M)で決める。以前はここで無条件に'flex'に
+  // していたが、m=1の初期状態は'none'にする。
+  illustEl.style.display = M ? 'none' : 'flex';
+
+  // ★追加【メーター表示ラジオボタン(プレビュー)】: 画面上のラジオボタン
+  // から、その場でメーターの表示/非表示を切り替えられるようにする。
+  // d(実機/デモ)には依存しない(#illustStageのDOM表示切替のみで、
+  // obniz接続状態と無関係なため)。表示/非表示を切り替えた後は、
+  // 隣接するpanel/OBNIZ_OUTPUT側の実寸が変わるため、既存のresize
+  // リスナー(fitPanelToWindow/fitIllustToStandardUI等)にそのまま
+  // 再計算させるべく、resizeイベントを合成発火するだけにする
+  // (関数参照をこのIIFEの外に持ち出す必要がないための簡便策)。
+  const meterToggleShowEl = document.getElementById('meterToggleShow');
+  const meterToggleHideEl = document.getElementById('meterToggleHide');
+  if (meterToggleShowEl && meterToggleHideEl) {
+    meterToggleShowEl.checked = !M;
+    meterToggleHideEl.checked = M;
+    const applyMeterVisible = function (visible) {
+      illustEl.style.display = visible ? 'flex' : 'none';
+      window.dispatchEvent(new Event('resize'));
+    };
+    meterToggleShowEl.addEventListener('change', function () {
+      if (meterToggleShowEl.checked) applyMeterVisible(true);
+    });
+    meterToggleHideEl.addEventListener('change', function () {
+      if (meterToggleHideEl.checked) applyMeterVisible(false);
+    });
+  }
 })();
 
 let ONCONNECT_LOCK = false;
