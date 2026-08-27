@@ -592,6 +592,10 @@
         color:#111;
         padding:16px;
         transition: transform .05s ease, background .15s ease;
+        /* ★追加【タッチのクリック認識対策】: ダブルタップズーム待ち等の
+           ブラウザ既定のジェスチャー判定を挟まず、タッチを即座に操作として
+           扱えるようにする(下のpointerdown対応とセット)。 */
+        touch-action: manipulation;
       }
       .panel .btn:hover{ background:var(--panel-hover); }
       .panel .btn:active{ transform: scale(0.96); background:#c9dee6; }
@@ -1528,11 +1532,36 @@ if (PANEL_MODE) {
   // ボタンは押しても反応しないようにする(連打による多重動作・誤操作対策)。
   // ACTION_LOCKはobniz.onconnect内の各アクションで管理されているため、
   // ここでは値を直接見るだけ(=false)の時だけ橋渡し(.click())を通す。
-  document.getElementById('btnUp').addEventListener('click', function () { if (!ACTION_LOCK) U.click(); });
-  document.getElementById('btnDown').addEventListener('click', function () { if (!ACTION_LOCK) D.click(); });
-  document.getElementById('btnLeft').addEventListener('click', function () { if (!ACTION_LOCK) L.click(); });
-  document.getElementById('btnRight').addEventListener('click', function () { if (!ACTION_LOCK) R.click(); });
-  document.getElementById('btnThrow').addEventListener('click', function () { if (!ACTION_LOCK) PIT.click(); });
+  // ★修正【タッチのクリック認識対策】: 以前は'click'イベントのみを見て
+  // いたが、タッチ操作は指の触れ始め(touchstart)から離す(touchend)までが
+  // 同じ場所でぶれずに完了しないとブラウザが'click'を合成してくれず、
+  // 軽いタッチ・わずかな指のずれ等で反応しないことがあった。
+  // 'pointerdown'(タッチ/マウス/ペンいずれも触れた瞬間に即発火)を追加で
+  // 見ることで、触れた時点で即座に操作を確定させ、確定のための
+  // 「綺麗な一回のタップ」を要求しないようにする。
+  // 一方で、キーボード操作・スイッチ操作等の支援技術は要素に対して
+  // 'click'を発火させる(pointerdownを伴わない)ことがあるため、'click'
+  // 自体は残しつつ、同一操作からの重複発火(pointerdown→そのままclickも
+  // 発火するケース)だけを短い時間窓でまとめて防ぐ。
+  function bindPanelButton(id, action) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    let lastHandledAt = 0;
+    const HANDLED_WINDOW_MS = 600;
+    const handler = function () {
+      const now = Date.now();
+      if (now - lastHandledAt < HANDLED_WINDOW_MS) return;
+      lastHandledAt = now;
+      if (!ACTION_LOCK) action();
+    };
+    el.addEventListener('pointerdown', handler);
+    el.addEventListener('click', handler);
+  }
+  bindPanelButton('btnUp', function () { U.click(); });
+  bindPanelButton('btnDown', function () { D.click(); });
+  bindPanelButton('btnLeft', function () { L.click(); });
+  bindPanelButton('btnRight', function () { R.click(); });
+  bindPanelButton('btnThrow', function () { PIT.click(); });
 
   // タイトル(bploading)をパネル上部へ移動
   const panelEl = document.querySelector('#customPanelWrap .panel');
