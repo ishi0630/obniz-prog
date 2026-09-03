@@ -411,6 +411,20 @@
         flex-direction:column;
         overflow:hidden;
       }
+      /* ★追加【メーター表示ラジオボタン追加によるp=0スマホ被り対策】:
+         bodyがheight:100vh;overflow:hiddenのため(実機接続時の別問題対策で
+         意図的に設定、変更しない)、p=0の縦積みコンテンツはスクロールが
+         一切できず、1画面の高さぴったりに収まっている必要がある。
+         メーター表示/非表示ラジオボタン行を追加した分、以前は問題なかった
+         狭いスマホ画面で最下段のボタン(いちばんした/まんなか等)がSafari
+         下部のツールバーに被って見えなくなる不具合が発生した。
+         bploading(h3)はブラウザ既定の大きな上下マージン(約0.83em×2)を
+         持っていたため、ここを詰めて捻出した余白でラジオボタン行の
+         追加分を吸収する(p=1では後でpanel-titleクラスに置き換わり
+         margin:0で上書きされるため、この指定は主にp=0にのみ効く)。 */
+      #bploading{
+        margin:8px 0;
+      }
       /* ============================================================
          ★修正: 実機モード(d=0)接続時、obniz.js側が独自のUI要素を
          bodyに追加することがあり、それがflexレイアウトに影響して
@@ -721,7 +735,7 @@
          p=0/p=1どちらでも同じ場所(bploadingの直後、パネル/標準UIより上)
          に置く。
          ============================================================ -->
-    <div id="meterToggleRow" style="text-align:center; margin:0 0 8px; font-size:13px;">
+    <div id="meterToggleRow" style="text-align:center; margin:0 0 4px; font-size:12px; line-height:1.2;">
       <label style="margin-right:12px; cursor:pointer;">
         <input type="radio" name="meterToggle" id="meterToggleShow" checked> メーター表示
       </label>
