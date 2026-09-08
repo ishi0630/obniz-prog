@@ -12,6 +12,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **チェックポイント（多言語対応版・フランス語d=0/d=1フィックス）**: コミット`cb54dc2`時点。2026-08-20版チェックポイントを土台に、`d=1`時のlg強制無視の撤廃、フランス語表示の既存バグ修正（`msg_H0`系未設定・誤訳・タイプミス）、方向ゲージラベル・デモバナー・二重タブガードのフランス語対応を実施（これらは`p=0`/`p=1`共通のロジックのため両方に効く）。加えて`p=0`向けに、文字幅自動縮小（`fitDispFont`）・限界到達メッセージの冗長表示簡略化を実施（`p=1`の△パネルUI側は今回このp=0固有の対応は未反映）。d=1（Playwright）・d=0（実機、スマホSafari）双方で日本語・フランス語の表示崩れ（undefined・2行折り返し等）がないことを確認済み。3言語目以降の追加は現時点では未着手（2言語での安定化が優先）。
 
+**チェックポイント（体験回数カウンター・メーター表示切替・操作性改善版）**: コミット`90e9eab`時点。公開デモ用の体験回数カウンター（`online-boccia.github.io`限定、J/F対応）を追加。`m`パラメータ＋画面上のラジオボタンでメーター（`#illustStage`）の表示/非表示をその場で切り替えられるようにした（詳細は後述「メーター表示のオン/オフ切替」）。△パネル(p=1)のボタンをタッチ操作で即座に反応するよう改善（後述「△パネル(p=1)のタッチ操作性」）。p=0のスマホSafariで最下段ボタンがブラウザ下部ツールバーに被る不具合を修正。`RS`（ランプサイズ）ごとの高さ移動ステップ係数を実機の動き具合に合わせて調整（`rs=L`は既定比×1.147125、`rs=S`は既定比×0.855。値は今後も実機確認しながら追加調整されうる、`step_u`/`step_d`のコメント参照）。
+
 ## 動作確認・デプロイ
 
 - ビルド/lint/testの仕組みは存在しない。`RAMP-DEMO.html` をそのままブラウザで開くか、GitHub Pagesで公開したURLにアクセスして動作確認する。
@@ -33,7 +35,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `d`  | デモモード(1=シミュレーション / 0=実機接続) | `0`（**このデフォルトは変更しない方針**。デモ配布時はURL側で`?d=1`を付ける運用） |
 | `p`  | 操作パネル(1=△の大きいボタンパネルUI / 0=標準の小ボタンUI) | `0` |
 | `id` | obniz device ID（8桁の数字。ハイフン・空白は自動除去）。**RAMP-DEMO.htmlのみ対応**（`RAMP-ILLUSTRATION-POC.html`には未反映） | `00000000`（8桁数字以外は全て安全側でこのダミーIDにフォールバック。実機確認時にURL側でその場限り指定する用途。**コードに実IDを書き込まないこと**） |
-| `m`  | パネル左のメーター（たかさ・方向ゲージ、`#illustStage`）表示(1=非表示 / それ以外=表示)。`DEMO_MODE`/`PANEL_MODE`/`LG`いずれとも独立した表示オプション。**RAMP-DEMO.htmlのみ対応**（`RAMP-ILLUSTRATION-POC.html`には未反映） | `0`（表示。従来通りの見た目） |
+| `m`  | パネル左のメーター（たかさ・方向ゲージ、`#illustStage`）表示(1=非表示 / それ以外=表示)。`DEMO_MODE`/`PANEL_MODE`/`LG`いずれとも独立した表示オプション。起動時の初期値としてこのパラメータを使うほか、画面上のラジオボタンでも後から切替可能（詳細は後述）。**RAMP-DEMO.htmlのみ対応**（`RAMP-ILLUSTRATION-POC.html`には未反映） | `0`（表示。従来通りの見た目） |
 
 ## アーキテクチャ
 
@@ -70,7 +72,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `obniz.onconnect`内の`while (LOOP_ACTIVE)`ループが、各`ObnizUI.Button`の`isClicked()`をポーリングして分岐する形で実装されている（`PIT`/`U`/`D`/`UU`/`DD`/`L`/`R`/`LL`/`RR`/`H100`/`H50`/`H0`）。各分岐は`ACTION_LOCK`で多重実行を防止し、`finally`で必ず解除する。
 
-- **高さ制御**: `moveHeight(delta, isBig, playFreq)`（微調整）と`setHeightPreset(target, label, voice)`（いちばんうえ/した/まんなか直行）。ステップ数は`step_u`/`step_d`が`RS`（ランプサイズ）で係数を変える
+- **高さ制御**: `moveHeight(delta, isBig, playFreq)`（微調整）と`setHeightPreset(target, label, voice)`（いちばんうえ/した/まんなか直行）。ステップ数は`step_u`/`step_d`が`RS`（ランプサイズ）で係数を変える。実機での動き具合を見ながら`RS`ごとに追加の倍率調整を重ねてきており（`rs=L`は既定比×1.147125、`rs=S`は既定比×0.855、いずれもコード内で乗算をチェーンする形で履歴が追える）、今後もこの調整が続く可能性がある。値を変える時は`step_u`/`step_d`内の既存の掛け算にさらに掛け足す形で追記し、コメントで倍率の履歴を残すこと
 - **左右制御**: `moveLR(delta, speedValue, playFreq)`。デモモードのみ移動演出用に500ms待つ（`DEMO_MODE`分岐の一例）
 - **EEPROM**: `writeEEPROM`/`readEEPROM`（`ADDR_HEIGHT=0x0000`、`ADDR_DIRECTION=0x0010`）で高さ・左右位置を実機I2C EEPROMに保存・復元。**左右位置(`ADDR_DIRECTION`)は現状保存されているが、高さと違い起動時の初期表示ロジックが薄いので変更時は要確認**
 - **表示整形**: `fmtIdle`/`fmtHeightMoving`/`fmtHeightArrived`/`fmtLRMoving`が`PANEL_MODE`で改行区切り複数行 or 標準UIの1行文字列を出し分ける
@@ -79,6 +81,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### 複数同時接続対策（実機特有の既知バグ対策）
 
 `obniz.onconnect`内の初期化処理では、`motor1.freeWait()`/`motor2.freeWait()`/`obniz.io11.output(false)`を**意図的に呼んでいない**（コメントに理由あり）。他セッションが動作中に接続してくると、これらの呼び出しがステップずれ・ロック誤解除を引き起こしていたため。ここを復活させないこと。
+
+### メーター表示のオン/オフ切替（`m`パラメータ・ラジオボタン）
+
+`#illustStage`（たかさ・方向ゲージ）の表示/非表示は、URLパラメータ`m`による起動時の初期値指定に加え、画面上部（デモバナー直下、パネル/標準UIより上）の「メーター表示／メーター非表示」ラジオボタンで**リロードなしにその場で切替可能**。
+
+- `DEMO_MODE`(`d`)には一切依存しない（`illustStage`のDOM表示切替のみで、obniz接続状態と無関係なため）
+- `illustStage`のcontentRow/standard-illust-rowへの配置自体は`m`の値によらず常に行い、表示状態(`display:none`/`flex`)だけを`m`の初期値・ラジオボタンで制御する設計（`M`変数が`true`でも配置処理自体はスキップしない）。これにより、初期状態で非表示でも後からラジオボタンで表示に戻せる
+- 切替時は`fitPanelToWindow`/`fitIllustToStandardUI`等の既存resizeリスナーを再利用するため、`window.dispatchEvent(new Event('resize'))`を合成発火するだけの実装になっている
+- `p=1`ではラジオボタン行自体もデモバナーと同じ理由（`.wrap`の`position:fixed;inset:0`オーバーレイの裏に隠れる）で`.wrap`内側へJSで移動している
+
+### △パネル(p=1)のタッチ操作性
+
+△パネルの5ボタン(`#btnUp`等)は、`'click'`イベントだけでなく`'pointerdown'`も見て即座に反応する（`bindPanelButton`関数）。タッチ操作は指の触れ始めから離すまでが同じ場所でぶれずに完了しないとブラウザが`'click'`を合成しないため、軽いタッチやわずかな指のずれで反応しないことがあった対策。`'click'`自体も残しているのは、キーボード操作・スイッチ操作等の支援技術が`.click()`を発火させるケース（`pointerdown`を伴わない）に対応するため。同一操作からの`pointerdown`→`click`の連続発火は、短い時間窓（600ms）でまとめて1回分だけ処理して二重発火を防止している。`.panel .btn`には`touch-action:manipulation`も付与し、ダブルタップズーム待ち等のブラウザ既定ジェスチャー判定を回避している。
 
 ## 安全上・運用上の重要ルール（必ず守ること）
 
@@ -89,6 +104,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 既知の残タスク
 
+- **(解決済み参考)** `p=0`のスマホ実機（Safari）で、`m`ラジオボタン行の追加により全体が少し下に押し出され、最下段のボタン（いちばんした/まんなか等）がSafari下部のツールバーに被って見えなくなる不具合があった。`body`が`height:100vh;overflow:hidden`（実機接続時の別問題対策で既存、変更しない方針）のため、p=0のコンテンツはスクロール不可・1画面ぴったりに収まる前提だったことが原因。`#bploading`（タイトルh3）のブラウザ既定の大きな上下マージンを詰めて余白を捻出する形で対応済み。**今後、p=0に新しい要素を縦に追加する時は、同様に「1画面ぴったり」の制約を意識すること**
 - `d=0`（実機モード）の基本動作は実機で確認済み（`id`パラメータでの一時ID指定含む）。`p=1`（PC）・`p=0`（スマホSafari、デモモードでの表示確認）についても一通り確認済み。ただし`d=0`＋`p=0`の実機・実ネットワーク環境での組み合わせ確認は依然未実施
 - 左右位置のEEPROM保存・復元ロジックの妥当性再確認（高さほど手厚く検証されていない）
 - なげるギミックの`pit-anim`オーバーレイの見た目を実機画面で最終確認（PCでは確認済み・良好）
