@@ -2179,7 +2179,12 @@ async function moveHeight(delta, isBig, playFreq) {
   }
 
   obniz.io11.output(false);
-  await motor1.freeWait();
+  // ★緊急対策【モーターロック(ソレノイド)故障のため】: motor1(上下/高さ軸)を
+  // 移動完了後もfreeWait()で無励磁(フリー)にせず、常時通電(ホールド)状態の
+  // ままにする。物理ロックが機械的に位置を保持できなくなったため、代わりに
+  // モーター自身の保持トルクで位置を保つ応急対応。元の処理は削除せずコメント
+  // アウトで残す(ロック修理後に戻す場合はこの1行を復活させればよい)。
+  // await motor1.freeWait();
 
   LOC_No_N = LOC_No;
 
@@ -2238,7 +2243,9 @@ async function setHeightPreset(target, label, voice) {
   }
 
   obniz.io11.output(false);
-  await motor1.freeWait();
+  // ★緊急対策【モーターロック(ソレノイド)故障のため】: moveHeight()と同じ理由で、
+  // motor1を常時通電(ホールド)状態のままにする(freeWait()を呼ばない)。
+  // await motor1.freeWait();
 
   LOC_No_N = LOC_No;
 
