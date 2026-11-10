@@ -991,6 +991,9 @@ window.addEventListener("pagehide", () => {
 //        場合に、このリポジトリのコードには実IDを一切含めず、URL側でその場限りの
 //        値として渡すために追加した(安全ルールは変更なし。実IDをコードや
 //        コミット・ブラウザ履歴等に残さないよう、URLの取り扱いに注意すること)
+//   st : ★追加 上下移動のステップ数を標準よりさらに増減させる(単位:%)。
+//        st=1なら+1%、st=-1なら-1%。省略時・数値でない場合は0(無調整)。
+//        rs(S/L)どちらにも効く
 // ========================================
 
 function getParam(name, defaultValue) {
@@ -1000,6 +1003,11 @@ function getParam(name, defaultValue) {
 
 const RN = Number(getParam("rn", 1));
 const RS = getParam("rs", "S");
+// ★追加: rs(S/L)の値によらず、上下移動のステップ数を標準より増減させる
+// パラメータ。単位は%。st=1なら+1%、st=-1なら-1%。
+// 数値以外・未指定の場合は0%(無調整)扱いにする(安全側のフォールバック)。
+const ST_RAW = Number(getParam("st", "0"));
+const ST = isFinite(ST_RAW) ? ST_RAW : 0;
 
 // ★追加: obniz device IDをURLパラメータ(id)で上書きできるようにする。
 // このリポジトリは公開デモ用のため、コード自体には実IDを絶対に含めない
@@ -2094,6 +2102,9 @@ obniz.onconnect = async function () {
         // ★修正: rs=L(大)の移動ステップを1.15倍→1.05倍→0.95倍(合計1.147125倍)に調整
         STEP = (LOC_D * -39 - 10) * 1.15 * 1.05 * 0.95;
      }
+      // ★追加: rsの値によらず、さらにst%分を増減する
+      // (既定st=0なら影響なし)
+      STEP = STEP * (1 + ST / 100);
     }
     function step_d(size) {
       if (size === 'S') {
@@ -2103,6 +2114,9 @@ obniz.onconnect = async function () {
         // ★修正: rs=L(大)の移動ステップを1.15倍→1.05倍→0.95倍(合計1.147125倍)に調整
         STEP = (LOC_D * -37) * 1.15 * 1.05 * 0.95;
      }
+      // ★追加: rsの値によらず、さらにst%分を増減する
+      // (既定st=0なら影響なし)
+      STEP = STEP * (1 + ST / 100);
     }
 
 // ========================================
@@ -2179,12 +2193,7 @@ async function moveHeight(delta, isBig, playFreq) {
   }
 
   obniz.io11.output(false);
-  // ★緊急対策【モーターロック(ソレノイド)故障のため】: motor1(上下/高さ軸)を
-  // 移動完了後もfreeWait()で無励磁(フリー)にせず、常時通電(ホールド)状態の
-  // ままにする。物理ロックが機械的に位置を保持できなくなったため、代わりに
-  // モーター自身の保持トルクで位置を保つ応急対応。元の処理は削除せずコメント
-  // アウトで残す(ロック修理後に戻す場合はこの1行を復活させればよい)。
-  // await motor1.freeWait();
+  await motor1.freeWait();
 
   LOC_No_N = LOC_No;
 
@@ -2243,9 +2252,7 @@ async function setHeightPreset(target, label, voice) {
   }
 
   obniz.io11.output(false);
-  // ★緊急対策【モーターロック(ソレノイド)故障のため】: moveHeight()と同じ理由で、
-  // motor1を常時通電(ホールド)状態のままにする(freeWait()を呼ばない)。
-  // await motor1.freeWait();
+  await motor1.freeWait();
 
   LOC_No_N = LOC_No;
 
