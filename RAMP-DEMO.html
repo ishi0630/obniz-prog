@@ -1147,7 +1147,12 @@ class FakeObniz {
     this._onconnect = null;
     this._onclose = null;
 
-    this._eeprom = { 0x0000: 50, 0x0010: 0 };
+    // ★修正【複数タブレット間の同期対応】: ADDR_DIRECTION(0x0010)は
+    // 実機側でreadDirectionEEPROM()が「生の値-100」を左右位置として
+    // 扱うようになったため、デモの初期状態(左右センター=0)に対応する
+    // 生の値は100(100-100=0)にする必要がある(以前は0=センターのまま
+    // 直接読んでいたため0でよかったが、オフセット導入に伴い要修正)。
+    this._eeprom = { 0x0000: 50, 0x0010: 100 };
     this._eepromPointer = 0;
 
     this.i2c0 = {
@@ -1892,6 +1897,20 @@ obniz.onconnect = async function () {
       return data[0];
     }
 
+    // ★追加【複数タブレット間の同期対応】: ADDR_DIRECTION(左右位置)は
+    // -100〜100の符号付きの値だが、EEPROMは1バイト(0〜255の符号なし)しか
+    // 保存できないため、+100のオフセットを掛けて0〜200の範囲に収めて保存する
+    // (ADDR_HEIGHTは0〜100で常に非負のため、このオフセットは不要)。
+    // ADDR_DIRECTIONの読み書きは、直接readEEPROM/writeEEPROMを呼ばず、
+    // 必ずこの2関数を経由すること(そうしないと符号が壊れる)。
+    async function readDirectionEEPROM() {
+      const raw = await readEEPROM(ADDR_DIRECTION);
+      return raw - 100;
+    }
+    async function writeDirectionEEPROM(value) {
+      await writeEEPROM(ADDR_DIRECTION, value + 100);
+    }
+
 // ========================================
 // Display / Position
 // ========================================
@@ -2067,6 +2086,10 @@ obniz.onconnect = async function () {
     async function pos_set() {
         DISP.setText((PANEL_MODE ? '' : String(COLOR)) + msg_WT);
         LOC_No_N = await readEEPROM(ADDR_HEIGHT);   // READ LOC DATA
+        // ★追加【複数タブレット間の同期対応】: 高さと同様、左右位置も
+        // アクション開始のたびにEEPROMから最新値を読み直す。他のタブレットが
+        // 直前に動かした左右位置をこのタブレットのアクションにも反映させるため。
+        LR_No_N = await readDirectionEEPROM();
     }
 
 // Position CLEAR LOC/LR save EEPROM & set/DISP ------------------------------------------------------------------------
@@ -2080,7 +2103,7 @@ obniz.onconnect = async function () {
         LR_No_N_DSP = LR_No_DSP ;
 
         await writeEEPROM(ADDR_HEIGHT,LOC_No);   // WRITE LOC DATA
-        await writeEEPROM(ADDR_DIRECTION,LR_No);   // WRITE LR DATA
+        await writeDirectionEEPROM(LR_No);   // WRITE LR DATA
 
         DISP.setText(fmtIdle());
 
@@ -2308,6 +2331,12 @@ async function moveLR(delta, speedValue, playFreq) {
   LR_No_N = LR_No;
   LR_No_N_DSP = LR_No_DSP;
 
+  // ★追加【複数タブレット間の同期対応】: 高さ(moveHeight)は移動完了後に
+  // writeEEPROMしていたが、左右はこれまでEEPROMへの保存を一切していな
+  // かった(既知の残タスクとして認識されていた不足分)。他のタブレットが
+  // この後pos_set()で左右位置を再読込する際に反映されるよう、ここで保存する。
+  await writeDirectionEEPROM(LR_No);
+
   await _ai.playAudio(playFreq, 1 * 30);
 
   if (isLimit) {
@@ -2378,7 +2407,7 @@ async function moveLR(delta, speedValue, playFreq) {
   STEP = 0;
   LR_No = 0;
 
-  LR_No = await readEEPROM(ADDR_DIRECTION);   // READ LR DATA
+  LR_No = await readDirectionEEPROM();   // READ LR DATA
 
   LR_No_DSP = LR_No ;
   LR_No_N = LR_No ;
@@ -2410,6 +2439,53 @@ async function moveLR(delta, speedValue, playFreq) {
   updateIllustHeightLabel(LOC_No_N);
   updateIllustLR(LR_No_N);
   updateIllustLRLabel(LR_No_N);
+
+  // ========================================
+  // ★追加【複数タブレット間の同期対応】: 操作していない間も、数秒おきに
+  // EEPROMの値を読み直し、他のタブレットがこの実機を操作した結果(高さ・
+  // 左右位置)をこのタブレットの表示にも反映する(多少の遅延は許容する前提
+  // ＝ユーザー要望の「数秒程度のディレイはあってもよい」に対応)。
+  // ACTION_LOCK中(自分がこのタブレットで操作中)はwhileループ自体がその場
+  // (await チェーンの途中)で止まっているため、この関数はループの「何も
+  // 押されていない」待機分岐でのみ呼ばれる＝自分の操作を上書きする心配はない。
+  // ========================================
+  let _syncPollTickCount = 0;
+  const SYNC_POLL_TICKS = 8; // idle待機(500ms)×8回 ≒ 約4秒間隔
+  async function syncPositionFromEEPROM() {
+    const latestHeight = await readEEPROM(ADDR_HEIGHT);
+    const latestLR = await readDirectionEEPROM();
+
+    // ★通信エラー・他タブレットとの書き込みタイミング競合等で異常値を
+    // 読んでしまった場合に備え、範囲外の値は無視する(次回のポーリングで
+    // 再試行されるだけなので、1回くらい読み飛ばしても実害は小さい)。
+    const heightValid = Number.isFinite(latestHeight) && latestHeight >= 0 && latestHeight <= 100;
+    const lrValid = Number.isFinite(latestLR) && latestLR >= -100 && latestLR <= 100;
+
+    let changed = false;
+
+    if (heightValid && latestHeight !== LOC_No_N) {
+      LOC_No = latestHeight;
+      LOC_No_N = latestHeight;
+      LOC_D = 0;
+      updateIllustHeight(LOC_No_N);
+      updateIllustHeightLabel(LOC_No_N);
+      changed = true;
+    }
+
+    if (lrValid && latestLR !== LR_No_N) {
+      LR_No = latestLR;
+      LR_No_N = latestLR;
+      check_LR();
+      LR_No_N_DSP = LR_No_DSP;
+      updateIllustLR(LR_No_N);
+      updateIllustLRLabel(LR_No_N);
+      changed = true;
+    }
+
+    if (changed) {
+      DISP.setText(fmtIdle());
+    }
+  }
 
   while (LOOP_ACTIVE) {
     // ★【修正箇所】複数ブラウザ遅延対策：ループ冒頭の高速画面更新（wait 20ms と DISP.setText）を削除。
@@ -2764,6 +2840,20 @@ async function moveLR(delta, speedValue, playFreq) {
         // ★【修正箇所】待機時のウェイトを ObnizUI.Util.wait に統一
         await ObnizUI.Util.wait(500);
         MESSAGE = '';
+
+        // ★追加【複数タブレット間の同期対応】: 誰も操作していない時だけ、
+        // 一定間隔でEEPROMから最新の高さ・左右位置を読み直して反映する。
+        _syncPollTickCount++;
+        if (_syncPollTickCount >= SYNC_POLL_TICKS) {
+          _syncPollTickCount = 0;
+          try {
+            await syncPositionFromEEPROM();
+          } catch (e) {
+            // ★通信が不安定な時に失敗することがあっても、デモ・操作自体を
+            // 止めないよう、ここではエラーを画面に出さずログのみに留める。
+            console.error('[複数タブレット同期] EEPROM読み込み失敗:', e);
+          }
+        }
       }
 	  }
     } catch (e) {
