@@ -92,6 +92,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 複数の端末（タブレット）が同じ実機obnizに接続して操作できる運用のため、**あるタブレットで操作した高さ・左右位置の結果が、他のタブレットの表示にも反映されるようにしている**。
 
 - `pos_set()`（各アクション開始時に必ず呼ばれる）で、高さに加えて左右位置も毎回EEPROMから読み直すようにした（以前は高さのみ再読込していた）。これにより、他のタブレットが直前に動かした値が、このタブレットの次のアクションの基準値に反映される。**同期のタイミングはこの「自分が操作を開始する瞬間」のみ**
+- **✅ 修正済みバグ**: `pos_set()`は`LR_No_N`（左右の生値）をEEPROMから読み直すが、DISP表示(`fmtIdle()`)が実際に使う`LR_LR`（ひだり/みぎラベル）・`LR_No_N_DSP`（絶対値表示）は`check_LR()`を呼ばないと再計算されないため、読み直すだけでは画面表示が古い左右位置のままになる不具合があった（高さは`LOC_No_N`を表示にそのまま使うため表面化しなかった）。`pos_set()`内で`LR_No = LR_No_N;` → `check_LR();` → `LR_No_N_DSP = LR_No_DSP;` を追加し、表示用変数を最新の`LR_No_N`に揃えるよう修正済み
 - `moveLR()`は今回の対応で初めて`writeDirectionEEPROM()`を呼ぶようになった（以前は左右位置をEEPROMに保存していなかった）
 - `FakeObniz`（`d=1`時）の`_eeprom`初期値は、上記のオフセットに合わせて`ADDR_DIRECTION`の生値を`100`（デコード後`0`＝センター）にしている
 
@@ -113,7 +114,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - デモモード(`d=1`)でのPlaywright確認（高さ・左右操作、エラー無し）は済み
 - **✅ ピン番号自体はNEXT実機本体の「PIN ASSIGN」画面表示と照合し一致を確認済み**（`0 Serv sign`／`1-4 Step a/aa/bb/b`／`5-8 Step a/aa/bb/b`／`9`は空欄＝Lock（obnizの画面は`wired()`で名前付きパーツとして使ったピンのみラベル表示する仕様で、`io9.output()`のような素のGPIO出力はラベルが付かず空欄になる。`now`機の`io11`も同様に空欄だった）／`10 i2c0 sda`／`11 i2c0 scl`）
 - ただし**`d=0`での実際の動作確認（motor1が高さ・motor2が左右として正しく動くか、Lock・EEPROM込みの一連動作）はまだ**。ピン番号の一致＝配線（どちらのモータードライバがどちらのピン群に実際に繋がっているか）の正しさを保証するものではないため、実際にモーターを動かしての確認が別途必要
-- `RAMP-DEMO.html`本体側の今後の変更（バグ修正・新機能等）は、NEXTモデル実機での`d=0`動作確認が取れるまでこのファイルには反映しない方針（`RAMP-ILLUSTRATION-POC.html`と同様の「確認が取れるまで同期させない」運用）
+- `RAMP-DEMO.html`本体側の今後の変更（バグ修正・新機能等）は、NEXTモデル実機での`d=0`動作確認が取れるまでこのファイルには反映しない方針（`RAMP-ILLUSTRATION-POC.html`と同様の「確認が取れるまで同期させない」運用）。そのため、フォーク後に`RAMP-DEMO.html`側で行った`pos_set()`の左右表示同期バグ修正（「複数タブレット間の値同期」参照）は**`RAMP-DEMO-NEXT.html`には未反映**
 
 ### 複数同時接続対策（実機特有の既知バグ対策）
 
